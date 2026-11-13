@@ -1,0 +1,122 @@
+@import 'tailwindcss';
+
+/* The site lives at night: the hero ends after sunset and the rest of the page carries on from there. */
+:root {
+  --paper: #0b0d12;
+  --ink: #efeee9;
+  --muted: #8d8f96;
+  --line: #262a33;
+  --blue: #8c9bff;
+  --own: #ff8a3d;
+  --glow: #ffb066;
+  color-scheme: dark;
+}
+
+@theme inline {
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-muted: var(--muted);
+  --color-line: var(--line);
+  --color-blue: var(--blue);
+  --color-own: var(--own);
+  --color-glow: var(--glow);
+  --font-sans: var(--font-schibsted), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+body {
+  background: var(--paper);
+  color: var(--ink);
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: var(--glow);
+  color: #111;
+}
+
+a {
+  text-underline-offset: 0.18em;
+  text-decoration-thickness: 1px;
+}
+
+/* Lenis */
+html.lenis,
+html.lenis body {
+  height: auto;
+}
+.lenis.lenis-smooth {
+  scroll-behavior: auto !important;
+}
+
+@keyframes nudge {
+  50% {
+    transform: translateY(4px);
+  }
+}
+.scroll-cue span {
+  display: inline-block;
+  animation: nudge 1.6s ease-in-out infinite;
+}
+
+/* With the 3D walk running, the plain version of the content stays for screen readers only. */
+html.walk .plain {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-cue span {
+    animation: none;
+  }
+}
+
+/* ---------- The CV sheet: A4 on screen, A4 on paper, always light. ---------- */
+
+.cv-sheet {
+  --paper: #ffffff;
+  --ink: #121212;
+  --muted: #62625d;
+  --line: #dcdcd6;
+  --blue: #1f3cff;
+  color-scheme: light;
+  background: var(--paper);
+  color: var(--ink);
+}
+
+@page {
+  size: A4;
+  margin: 13mm 14mm;
+}
+
+@media print {
+  html,
+  body {
+    background: #fff !important;
+  }
+  .no-print {
+    display: none !important;
+  }
+  .cv-sheet {
+    box-shadow: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+    max-width: none !important;
+    width: auto !important;
+  }
+  .avoid-break {
+    break-inside: avoid;
+  }
+  a {
+    text-decoration: none !important;
+  }
+}
+
+/* The music belongs to the boat trip, so the button is only there when the trip is. */
+html:not(.walk) .music {
+  display: none;
+}
