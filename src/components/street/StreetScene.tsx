@@ -12,7 +12,7 @@ import { cabinBoat, kayak, ownBoat, type Rider, rowBoat, sloep, tourBoat } from 
 import { BRIDGE, buildBackground, buildStreet, buildTowers, FAR, MAT, MIDSTREAM, palette, QUAY, RIVER, WATER } from './houses';
 import { People, Sitters } from './People';
 import { posterTexture } from './posters';
-import { skyAt } from './sky';
+import { type RGB, skyAt } from './sky';
 import { inkPass, reflectionMaterial, toonMaterial, uniforms, waterMaterial } from './toon';
 
 export type StreetState = {
@@ -28,6 +28,26 @@ export type StreetState = {
 export const street = buildStreet();
 const easeInOut = (x: number) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
 const UP = new THREE.Vector3(0, 1, 0);
+/** Sets a three.js colour from one of the sky's sRGB colours. */
+const srgb = (out: THREE.Color, c: RGB) => out.setRGB(c[0] / 255, c[1] / 255, c[2] / 255, THREE.SRGBColorSpace);
+
+/**
+ * Slides the sun (and the shadow map with it) only by whole shadow-map pixels. The light follows the boat; moved
+ * smoothly, every shadow edge would be redrawn a fraction of a pixel further each frame and crawl.
+ */
+const basis = { m: new THREE.Matrix4(), x: new THREE.Vector3(), y: new THREE.Vector3(), z: new THREE.Vector3() };
+function snapToShadowPixels(l: THREE.DirectionalLight) {
+  const c = l.shadow.camera;
+  const px = (c.right - c.left) / l.shadow.mapSize.x;
+  const py = (c.top - c.bottom) / l.shadow.mapSize.y;
+  basis.m.lookAt(l.position, l.target.position, c.up);
+  basis.m.extractBasis(basis.x, basis.y, basis.z);
+  const x = l.target.position.dot(basis.x);
+  const y = l.target.position.dot(basis.y);
+  const shift = basis.x.multiplyScalar(Math.round(x / px) * px - x).addScaledVector(basis.y, Math.round(y / py) * py - y);
+  l.target.position.add(shift);
+  l.position.add(shift);
+}
 
 // Render sizes to fall back through when frames take too long.
 const SIZES = [2, 1.5, 1];
@@ -210,16 +230,21 @@ function Posters({ locale, state, onOpen }: { locale: Locale; state: RefObject<S
 
 /* ---------------- Camera, light, and the ink pipeline ---------------- */
 
-function Scene({ state, locale, onOpen }: { state: RefObject<StreetState>; locale: Locale; onOpen: (id: string) => void }) {
+function Scene({ state, locale, onOpen, onSlow }: { state: RefObject<StreetState>; locale: Locale; onOpen: (id: string) => void; onSlow: (dpr: number) => void }) {
   const { camera, size, gl, scene } = useThree();
-  const setDpr = useThree((s) => s.setDpr);
   // the people's body and clothes, made in Blender (public/people/person.glb); they appear once it is in
   const [body, setBody] = useState<Made>();
   useEffect(() => void loadBody().then(setBody), []);
   const mirror = useRef<THREE.Mesh>(null);
   // Screens with one pixel per point are drawn at double size and scaled down, which smooths every line.
-  // If the machine cannot keep up with that, step the size back down.
-  const load = useRef({ frames: 0, time: 0, step: 0 });
+  // If the machine cannot keep up with that, step the size back down, but never below the screen's own.
+  // The timing starts once the scene has settled: while it is being built, and again when the people arrive,
+  // frames are slow for reasons that say nothing about the machine.
+  const load = useRef({ frames: 0, time: 0, step: 0, from: Infinity });
+  useEffect(() => {
+    load.current = { ...load.current, frames: 0, time: 0, from: performance.now() + 3000 };
+  }, [body]);
+  const frame = useRef(0);
   const sun = useRef<THREE.DirectionalLight>(null);
   const hemi = useRef<THREE.HemisphereLight>(null);
   const focus = useRef(0);
@@ -255,8 +280,10 @@ function Scene({ state, locale, onOpen }: { state: RefObject<StreetState>; local
   const ink = useMemo(inkPass, []);
   const normals = useMemo(() => new THREE.MeshNormalMaterial(), []);
   const targets = useMemo(() => {
-    const color = new THREE.WebGLRenderTarget(1, 1, { samples: coarse ? 2 : 4, type: THREE.HalfFloatType });
-    const normal = new THREE.WebGLRenderTarget(1, 1, { type: THREE.HalfFloatType });
+    // 8 bits a channel: the colour is stored sRGB-encoded, so the darks keep as many steps as on screen and nothing
+    // bands, and the normals only feed the ink lines. Half the memory and bandwidth of half-floats.
+    const color = new THREE.WebGLRenderTarget(1, 1, { samples: coarse ? 2 : 4, colorSpace: THREE.SRGBColorSpace });
+    const normal = new THREE.WebGLRenderTarget(1, 1);
     normal.depthTexture = new THREE.DepthTexture(1, 1);
     return { color, normal };
   }, []);
@@ -312,11 +339,11 @@ function Scene({ state, locale, onOpen }: { state: RefObject<StreetState>; local
     const sky = skyAt(s.p);
     uniforms.uTime.value += dt;
     const q = load.current;
-    if (!coarse && dt < 0.25 && q.step < SIZES.length - 1) {
+    if (!coarse && dt < 0.25 && q.step < SIZES.length - 1 && performance.now() > q.from) {
       q.frames++;
       q.time += dt;
       if (q.frames === 90) {
-        if (q.time / q.frames > 1 / 40) setDpr(Math.max(1, Math.min(devicePixelRatio, 2), SIZES[++q.step]));
+        if (q.time / q.frames > 1 / 40) onSlow(Math.max(1, Math.min(devicePixelRatio, 2), SIZES[++q.step]));
         q.frames = 0;
         q.time = 0;
       }
@@ -390,12 +417,13 @@ function Scene({ state, locale, onOpen }: { state: RefObject<StreetState>; local
     const l = sun.current;
     if (l && hemi.current) {
       l.target.position.set(v.pos.x + 25, 0, MIDSTREAM);
-      l.target.updateMatrixWorld();
       l.position.set(sky.sun[0], sky.sun[1], sky.sun[2]).multiplyScalar(120).add(l.target.position);
-      l.color.copy(sky.sunColor);
+      snapToShadowPixels(l);
+      l.target.updateMatrixWorld();
+      srgb(l.color, sky.sunColor);
       l.intensity = sky.sunIntensity;
-      hemi.current.color.copy(sky.skyLight);
-      hemi.current.groundColor.copy(sky.groundLight);
+      srgb(hemi.current.color, sky.skyLight);
+      srgb(hemi.current.groundColor, sky.groundLight);
       hemi.current.intensity = sky.hemi;
     }
 
@@ -404,9 +432,17 @@ function Scene({ state, locale, onOpen }: { state: RefObject<StreetState>; local
     if (targets.color.width !== v.buf.x || targets.color.height !== v.buf.y) {
       targets.color.setSize(v.buf.x, v.buf.y);
       targets.normal.setSize(v.buf.x, v.buf.y);
+      // Drawn at double size for a screen with one pixel per point, the scaling down already smooths every edge:
+      // multisampling on top of that would be 16 samples a pixel.
+      const samples = coarse ? 2 : gl.getPixelRatio() >= 2 * devicePixelRatio ? 0 : 4;
+      if (targets.color.samples !== samples) {
+        targets.color.samples = samples;
+        targets.color.dispose();
+      }
     }
     gl.setClearColor(0x000000, 0);
-    gl.shadowMap.needsUpdate = true;
+    // Above 90 frames a second the shadows are redrawn every other frame; nobody sees a shadow a frame behind.
+    gl.shadowMap.needsUpdate = dt > 1 / 90 || frame.current++ % 2 === 0;
     gl.setRenderTarget(targets.color);
     gl.clear();
     gl.render(scene, camera);
@@ -427,7 +463,7 @@ function Scene({ state, locale, onOpen }: { state: RefObject<StreetState>; local
     u.uNear.value = cam.near;
     u.uFar.value = cam.far;
     u.uThick.value = Math.max(1, gl.getPixelRatio() * 0.9);
-    u.uHaze.value.copy(sky.horizon);
+    srgb(u.uHaze.value, sky.horizon);
     gl.clear();
     gl.render(ink.scene, ink.camera);
   }, 1);
@@ -472,18 +508,49 @@ function Scene({ state, locale, onOpen }: { state: RefObject<StreetState>; local
 
 export default function StreetScene(props: { state: RefObject<StreetState>; locale: Locale; active: boolean; onOpen: (id: string) => void }) {
   const { active, ...rest } = props;
-  // R3F wants seconds here; requestAnimationFrame gives milliseconds.
-  useEffect(() => (active ? onFrame((t) => advance(t / 1000), 2) : undefined), [active]);
+  const { state } = props;
+  // The render size lives here, not only inside three.js: the canvas puts back whatever size it is given each
+  // time this component renders, which would undo a step down.
+  const [dpr, setDpr] = useState<number | [number, number]>(() => (matchMedia('(pointer: coarse)').matches ? [1, 1.5] : 2));
+  useEffect(() => {
+    if (!active) return;
+    // On a fast screen (120 Hz and up), while nobody scrolls, looks around or opens a poster, only the town itself
+    // moves: then every other frame is drawn. People strolling and boats drifting look the same at 60 frames a
+    // second, for half the work. Any input brings back the full rate at once.
+    let stirred = performance.now();
+    let seen = { p: -1, focus: null as string | null };
+    let skip = false;
+    const stir = () => {
+      stirred = performance.now();
+    };
+    addEventListener('pointermove', stir, { passive: true });
+    addEventListener('pointerdown', stir, { passive: true });
+    const off = onFrame((t, dt) => {
+      const s = state.current;
+      if (s.p !== seen.p || s.focus !== seen.focus) {
+        seen = { p: s.p, focus: s.focus };
+        stirred = t;
+      }
+      if (dt < 1 / 90 && t - stirred > 1500 && (skip = !skip)) return;
+      // R3F wants seconds here; requestAnimationFrame gives milliseconds.
+      advance(t / 1000);
+    }, 2);
+    return () => {
+      off();
+      removeEventListener('pointermove', stir);
+      removeEventListener('pointerdown', stir);
+    };
+  }, [active, state]);
   return (
     <Canvas
       className="!absolute inset-0"
       frameloop="never"
-      dpr={typeof window !== 'undefined' && matchMedia('(pointer: coarse)').matches ? [1, 1.5] : 2}
+      dpr={dpr}
       shadows={{ type: THREE.PCFShadowMap }}
       gl={{ antialias: false, alpha: true, toneMapping: THREE.NoToneMapping }}
       camera={{ fov: 48, near: 0.3, far: 1200, position: [-22, 32, MIDSTREAM] }}
     >
-      <Scene {...rest} />
+      <Scene {...rest} onSlow={setDpr} />
     </Canvas>
   );
 }

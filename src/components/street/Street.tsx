@@ -12,8 +12,8 @@ import { onFrame } from '@/lib/ticker';
 import { BeatArt } from '../BeatArt';
 import { GhentClock } from '../GhentClock';
 import { streetCopy as t } from './copy';
-import { STOPS } from './houses';
-import { kindOf, labelOf } from './posters';
+import { kindOf, labelOf } from './labels';
+import { STOPS } from './plan';
 import { skyAt } from './sky';
 import type { StreetState } from './StreetScene';
 
@@ -86,6 +86,9 @@ export function Street({ locale: l }: { locale: Locale }) {
     const io = new IntersectionObserver(([e]) => setActive(e.isIntersecting));
     io.observe(root.current!);
     let last = '';
+    // Only touch the page's styles when something moved: writing them every frame makes the browser redo the
+    // style and repaint the sky behind the canvas, even when nobody is scrolling.
+    let drawn: { p: number; focus: string | null } | null = null;
     const tick = () => {
       const el = root.current;
       const st = stage.current;
@@ -93,12 +96,14 @@ export function Street({ locale: l }: { locale: Locale }) {
       const r = el.getBoundingClientRect();
       const p = clamp01(-r.top / (r.height - innerHeight));
       const s = state.current;
+      if (drawn && drawn.p === p && drawn.focus === s.focus) return;
+      drawn = { p, focus: s.focus };
       s.p = p;
       s.intro = clamp01(p / INTRO);
       s.outro = clamp01((p - OUTRO) / (1 - OUTRO));
       s.x = xAt((p - INTRO) / (OUTRO - INTRO));
       const sky = skyAt(p);
-      st.style.background = `linear-gradient(to bottom, rgb(${sky.top.map(Math.round)}) 0%, rgb(${sky.horizonRGB.map(Math.round)}) 62%)`;
+      st.style.background = `linear-gradient(to bottom, rgb(${sky.top.map(Math.round)}) 0%, rgb(${sky.horizon.map(Math.round)}) 62%)`;
       const fg = Math.round(37 + sky.dark * 205);
       st.style.setProperty('--fg', `rgb(${fg},${fg},${Math.min(255, fg + 8)})`);
 

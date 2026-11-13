@@ -4,6 +4,7 @@ import { experiments, projects } from '@/content/projects';
 import type { Locale } from '@/content/types';
 import { period } from '@/content/ui';
 import { streetCopy as t } from './copy';
+import { kindOf } from './labels';
 
 // Poster faces for the facades, drawn on a 2D canvas. 16:10, like the frames on the houses.
 const W = 1600;
@@ -12,20 +13,6 @@ const PAPER = '#f4f0e4';
 const INK = '#25262f';
 const RED = '#c45a3d';
 const TEAL = '#2f7d7a';
-
-export type Kind = 'about' | 'work' | 'project' | 'small' | 'contact';
-export function kindOf(id: string): Kind {
-  if (id === 'about' || id === 'small' || id === 'contact') return id;
-  if (projects.some((p) => p.slug === id)) return 'project';
-  return 'work';
-}
-
-export function labelOf(id: string, l: Locale) {
-  const k = kindOf(id);
-  if (k === 'project') return projects.find((p) => p.slug === id)!.name;
-  if (k === 'work') return experience.find((r) => r.company.toLowerCase() === id)!.company;
-  return t[k][l];
-}
 
 function wrap(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, max: number, lh: number, maxLines = 9) {
   let line = '';

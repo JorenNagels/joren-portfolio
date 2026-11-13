@@ -1,8 +1,7 @@
-import * as THREE from 'three';
-
 // An afternoon on the Graslei, keyed to scroll progress p (0 = top, 1 = end): bright, golden, then dusk.
+// Colours are sRGB, 0 to 255. No three.js in here: the page reads the sky before the 3D code has loaded.
 
-type RGB = [number, number, number];
+export type RGB = [number, number, number];
 type Stop = { at: number; top: RGB; horizon: RGB; sun: RGB; sunColor: RGB; sunI: number; sky: RGB; ground: RGB; hemi: number; night: number };
 
 const stops: Stop[] = [
@@ -15,9 +14,6 @@ const stops: Stop[] = [
 
 const mix = (a: number, b: number, t: number) => a + (b - a) * t;
 const mix3 = (a: RGB, b: RGB, t: number): RGB => [mix(a[0], b[0], t), mix(a[1], b[1], t), mix(a[2], b[2], t)];
-const col = (c: RGB, out: THREE.Color) => out.setRGB(c[0] / 255, c[1] / 255, c[2] / 255, THREE.SRGBColorSpace);
-
-const out = { sunColor: new THREE.Color(), skyLight: new THREE.Color(), groundLight: new THREE.Color(), horizon: new THREE.Color() };
 
 export function skyAt(p: number) {
   let i = 0;
@@ -33,13 +29,12 @@ export function skyAt(p: number) {
   const lum = (0.2126 * horizon[0] + 0.7152 * horizon[1] + 0.0722 * horizon[2]) / 255;
   return {
     top,
-    horizonRGB: horizon,
-    horizon: col(horizon, out.horizon),
+    horizon,
     sun: [sun[0] / len, sun[1] / len, sun[2] / len] as RGB,
-    sunColor: col(mix3(a.sunColor, b.sunColor, t), out.sunColor),
+    sunColor: mix3(a.sunColor, b.sunColor, t),
     sunIntensity: mix(a.sunI, b.sunI, t),
-    skyLight: col(mix3(a.sky, b.sky, t), out.skyLight),
-    groundLight: col(mix3(a.ground, b.ground, t), out.groundLight),
+    skyLight: mix3(a.sky, b.sky, t),
+    groundLight: mix3(a.ground, b.ground, t),
     hemi: mix(a.hemi, b.hemi, t),
     night: mix(a.night, b.night, t),
     /** 0 = dark text reads best, 1 = light text */
