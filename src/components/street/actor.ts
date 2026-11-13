@@ -388,6 +388,9 @@ export function actor(seed: number, material: THREE.Material, wish?: Wish, body?
   mesh.add(list[0]);
   mesh.updateMatrixWorld(true);
   mesh.bind(new THREE.Skeleton(list));
+  // Each time a clip turns a bone, three.js also works out the same turn as angles, which nothing here reads.
+  // With 1,500 bones moving every frame, that adds up on a phone.
+  for (const b of list) b.quaternion._onChange(() => {});
   mesh.castShadow = true;
   const sole = soles(by);
   mesh.scale.setScalar(f.size);

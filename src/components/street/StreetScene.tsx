@@ -9,11 +9,12 @@ import { loadBody } from './actor';
 import type { Made } from './character';
 import { Crew } from './Crew';
 import { cabinBoat, kayak, ownBoat, type Rider, rowBoat, sloep, tourBoat } from './folk';
-import { BRIDGE, buildBackground, buildStreet, buildTowers, FAR, MAT, MIDSTREAM, palette, QUAY, RIVER, WATER } from './houses';
+import { BRIDGE, FAR, MAT, MIDSTREAM, palette, QUAY, RIVER, WATER } from './houses';
 import { People, Sitters } from './People';
 import { posterTexture } from './posters';
 import { type RGB, skyAt } from './sky';
 import { inkPass, reflectionMaterial, toonMaterial, uniforms, waterMaterial } from './toon';
+import { type World, world } from './world';
 
 export type StreetState = {
   x: number; // the boat's position along the river, metres
@@ -25,7 +26,8 @@ export type StreetState = {
   focus: string | null;
 };
 
-export const street = buildStreet();
+// The town starts building (in a worker) as soon as this file loads, alongside everything else that loads with it.
+if (typeof window !== 'undefined') world();
 const easeInOut = (x: number) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
 const UP = new THREE.Vector3(0, 1, 0);
 /** Sets a three.js colour from one of the sky's sRGB colours. */
@@ -181,7 +183,7 @@ function Clouds() {
 
 /* ---------------- Posters ---------------- */
 
-function Posters({ locale, state, onOpen }: { locale: Locale; state: RefObject<StreetState>; onOpen: (id: string) => void }) {
+function Posters({ street, locale, state, onOpen }: { street: World['street']; locale: Locale; state: RefObject<StreetState>; onOpen: (id: string) => void }) {
   const [tex, setTex] = useState<Record<string, THREE.Texture>>({});
   const [hover, setHover] = useState<string | null>(null);
   useEffect(() => {
@@ -195,7 +197,7 @@ function Posters({ locale, state, onOpen }: { locale: Locale; state: RefObject<S
     return () => {
       alive = false;
     };
-  }, [locale]);
+  }, [locale, street]);
   const { gl } = useThree();
   useEffect(() => {
     gl.domElement.style.cursor = hover ? 'pointer' : '';
@@ -230,7 +232,8 @@ function Posters({ locale, state, onOpen }: { locale: Locale; state: RefObject<S
 
 /* ---------------- Camera, light, and the ink pipeline ---------------- */
 
-function Scene({ state, locale, onOpen, onSlow }: { state: RefObject<StreetState>; locale: Locale; onOpen: (id: string) => void; onSlow: (dpr: number) => void }) {
+function Scene({ town, state, locale, onOpen, onSlow }: { town: World; state: RefObject<StreetState>; locale: Locale; onOpen: (id: string) => void; onSlow: (dpr: number) => void }) {
+  const { street, towers, background } = town;
   const { camera, size, gl, scene } = useThree();
   // the people's body and clothes, made in Blender (public/people/person.glb); they appear once it is in
   const [body, setBody] = useState<Made>();
@@ -275,8 +278,6 @@ function Scene({ state, locale, onOpen, onSlow }: { state: RefObject<StreetState
     () => ({ street: toonMaterial(), towers: toonMaterial(), reflection: reflectionMaterial(WATER), water: waterMaterial(QUAY), ground: toon('#cfc39f') }),
     [],
   );
-  const towers = useMemo(buildTowers, []);
-  const background = useMemo(buildBackground, []);
   const ink = useMemo(inkPass, []);
   const normals = useMemo(() => new THREE.MeshNormalMaterial(), []);
   const targets = useMemo(() => {
@@ -451,7 +452,12 @@ function Scene({ state, locale, onOpen, onSlow }: { state: RefObject<StreetState
     scene.overrideMaterial = normals;
     gl.setRenderTarget(targets.normal);
     gl.clear();
+    // Nothing has moved since the colour pass: keep its matrices, and count this as the same frame so three.js does
+    // not pose all the skeletons again. On a phone that repeat was a sixth of the frame.
+    scene.matrixWorldAutoUpdate = false;
+    gl.info.render.frame--;
     gl.render(scene, camera);
+    scene.matrixWorldAutoUpdate = true;
     scene.overrideMaterial = null;
     if (mirror.current) mirror.current.visible = true;
     gl.setRenderTarget(null);
@@ -501,7 +507,7 @@ function Scene({ state, locale, onOpen, onSlow }: { state: RefObject<StreetState
       <Boats body={body} />
       <OwnBoat pose={boat} body={body} />
       <Clouds />
-      <Posters locale={locale} state={state} onOpen={onOpen} />
+      <Posters street={street} locale={locale} state={state} onOpen={onOpen} />
     </>
   );
 }
@@ -512,8 +518,16 @@ export default function StreetScene(props: { state: RefObject<StreetState>; loca
   // The render size lives here, not only inside three.js: the canvas puts back whatever size it is given each
   // time this component renders, which would undo a step down.
   const [dpr, setDpr] = useState<number | [number, number]>(() => (matchMedia('(pointer: coarse)').matches ? [1, 1.5] : 2));
+  const [town, setTown] = useState<World>();
   useEffect(() => {
-    if (!active) return;
+    let alive = true;
+    world().then((w) => alive && setTown(w));
+    return () => {
+      alive = false;
+    };
+  }, []);
+  useEffect(() => {
+    if (!active || !town) return;
     // On a fast screen (120 Hz and up), while nobody scrolls, looks around or opens a poster, only the town itself
     // moves: then every other frame is drawn. People strolling and boats drifting look the same at 60 frames a
     // second, for half the work. Any input brings back the full rate at once.
@@ -540,7 +554,8 @@ export default function StreetScene(props: { state: RefObject<StreetState>; loca
       removeEventListener('pointermove', stir);
       removeEventListener('pointerdown', stir);
     };
-  }, [active, state]);
+  }, [active, state, town]);
+  if (!town) return null;
   return (
     <Canvas
       className="!absolute inset-0"
@@ -550,7 +565,7 @@ export default function StreetScene(props: { state: RefObject<StreetState>; loca
       gl={{ antialias: false, alpha: true, toneMapping: THREE.NoToneMapping }}
       camera={{ fov: 48, near: 0.3, far: 1200, position: [-22, 32, MIDSTREAM] }}
     >
-      <Scene {...rest} onSlow={setDpr} />
+      <Scene {...rest} town={town} onSlow={setDpr} />
     </Canvas>
   );
 }
