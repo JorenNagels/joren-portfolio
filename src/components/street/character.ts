@@ -896,8 +896,18 @@ export function figure(seed: number, wish: Wish = {}) {
     return k.done();
   };
 
-  /** Hinged at the ankle at the origin; the sole is ANKLE below it, heel at -0.08, toe at 0.18. */
-  const foot = () => {
+  /** A boot's shaft, around the ankle at the origin; `wider` to take a trouser leg tucked in. */
+  const shaft = (wider = 0): Ring[] => [
+    { p: [0, -ANKLE + 0.06, -0.004], rx: 0.048 + wider, rz: 0.05 + wider },
+    { p: [0, -ANKLE + 0.17, -0.004], rx: 0.045 + wider, rz: 0.047 + wider },
+  ];
+  const shaftOpt: Opt = { seg: 16, smooth: 1, start: 'open', end: 'flat' };
+
+  /**
+   * Hinged at the ankle at the origin; the sole is ANKLE below it, heel at -0.08, toe at 0.18. Without
+   * `withShaft` a boot comes without its shaft, for a body that hangs the shaft on the shin instead.
+   */
+  const foot = (withShaft = true) => {
     const k = pieces();
     const y = -ANKLE;
     const low = shoeKind === 'shoe' ? 0.8 : 1;
@@ -929,7 +939,7 @@ export function figure(seed: number, wish: Wish = {}) {
       sole,
       4,
     );
-    if (shoeKind === 'boot') k.part([{ p: [0, y + 0.06, -0.004], rx: 0.048, rz: 0.05 }, { p: [0, y + 0.17, -0.004], rx: 0.045, rz: 0.047 }], shoe, { seg: 16, smooth: 1, start: 'open', end: 'flat' });
+    if (shoeKind === 'boot' && withShaft) k.part(shaft(), shoe, shaftOpt);
     return k.done();
   };
 
@@ -963,6 +973,23 @@ export function figure(seed: number, wish: Wish = {}) {
       return [[I('pelvis'), 1 - t], [I('thigh_l'), t * left], [I('thigh_r'), t * (1 - left)]];
     };
     const headW = chain([J('neck_01'), J('Head')], [I('neck_01'), I('Head')], 0.03, I('spine_03'));
+    /**
+     * The weights of the nearest point of the Blender body below `top`: a part laid over it (a boot's shaft)
+     * then moves exactly as the body does, and as the clothes cut from the body do (blender/person.py).
+     */
+    const likeBody = (body: G, top: number): WeighN => {
+      const pos = body.attributes.position, idx = body.attributes.skinIndex, wt = body.attributes.skinWeight;
+      const near = [...Array(pos.count).keys()].filter((i) => pos.getY(i) < top);
+      const v = new THREE.Vector3();
+      return (p) => {
+        let best = -1, d = Infinity;
+        for (const i of near) {
+          const di = v.fromBufferAttribute(pos, i).distanceToSquared(p);
+          if (di < d) [best, d] = [i, di];
+        }
+        return [0, 1, 2, 3].map((k) => [idx.getComponent(best, k), wt.getComponent(best, k)] as [number, number]);
+      };
+    };
     if (made) {
       // body and clothes from Blender (blender/person.py), already weighted there
       const put = (name: string, col: string, mat = 0) => made[name] && out.push(coat(made[name], col, mat));
@@ -1070,7 +1097,37 @@ export function figure(seed: number, wish: Wish = {}) {
       }
       // the shoe bends at the ball of the foot
       const B = J(`ball_${c}`);
-      out.push(weigh(foot().translate(T.x, ANKLE, 0), chain([new THREE.Vector3(T.x, 0.05, -0.1), new THREE.Vector3(T.x, 0.05, B.z)], [I(`foot_${c}`), I(`ball_${c}`)], 0.03)));
+      const sole = chain([new THREE.Vector3(T.x, 0.05, -0.1), new THREE.Vector3(T.x, 0.05, B.z)], [I(`foot_${c}`), I(`ball_${c}`)], 0.03);
+      if (made?.Body) {
+        // The shoe's upper rises round the ankle (to 0.12), where the leg and the trouser leg turn with the
+        // shin. Fixed to the foot, it would have the trouser leg cut through it whenever the ankle bends; so
+        // from 0.07 up it takes on the body's own weights, and its collar moves with the leg inside it.
+        const leg = likeBody(made.Body, 0.35);
+        const mixed: WeighN = (p) => {
+          const [a, b, t] = sole(p);
+          const k = smoothstep(0.07, 0.11, p.y);
+          const shares = new Map<number, number>();
+          const put = (bone: number, s: number) => s > 0 && shares.set(bone, (shares.get(bone) ?? 0) + s);
+          put(a, (1 - t) * (1 - k));
+          put(b, t * (1 - k));
+          if (k > 0) for (const [bone, s] of leg(p)) put(bone, s * k);
+          const top = [...shares].sort((x, y) => y[1] - x[1]).slice(0, 4);
+          const sum = top.reduce((s, [, x]) => s + x, 0);
+          return top.map(([bone, s]) => [bone, s / sum] as [number, number]);
+        };
+        out.push(weigh(foot(false).translate(T.x, ANKLE, 0), mixed, true));
+      } else out.push(weigh(foot(false).translate(T.x, ANKLE, 0), sole));
+      // A boot's shaft goes with the shin, as the leg inside it does, and gives at the ankle like soft leather:
+      // fixed to the foot, the trouser leg would cut through it at every step. On a Blender body it takes the
+      // body's own weights, as the trousers do, so the two move as one; and it is made wide enough to take
+      // those trouser legs (about 0.05 round at the ankle) tucked in.
+      if (shoeKind === 'boot') {
+        const rings = shaft(made && legs !== 'shorts' ? 0.01 : 0).map((r) => ({ ...r, p: [r.p[0] + T.x, r.p[1] + ANKLE, r.p[2]] as V }));
+        const l = loft(rings, shaftOpt);
+        const w = made?.Body ? likeBody(made.Body, 0.35) : legW;
+        out.push(weigh(coat(l.body, shoe, 0), w, !!made?.Body));
+        for (const g of l.lids) out.push(weigh(coat(g, shade(shoe, 0.55), 0), w, !!made?.Body));
+      }
     }
     return mergeGeometries(out, false)!;
   };

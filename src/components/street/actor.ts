@@ -79,6 +79,230 @@ function aPose(by: Record<string, THREE.Bone>) {
   }
 }
 
+/* ---------------- Feet on the ground ---------------- */
+
+/**
+ * Points on the sole that must stay above the ground: the back of the heel (moves with the foot) and the tip
+ * of the shoe (moves with the toes). Taken in the pose the body was built in, before the person is scaled.
+ */
+function soles(by: Record<string, THREE.Bone>) {
+  const q = new THREE.Quaternion();
+  /** A point fixed to the bone, and the axis (fixed to the bone too) that lifts it: the foot's own across. */
+  const point = (bone: THREE.Bone, at: THREE.Vector3, side: number) => ({
+    bone,
+    pt: bone.worldToLocal(at),
+    side: new THREE.Vector3(side, 0, 0).applyQuaternion(bone.getWorldQuaternion(q).invert()),
+  });
+  return (['l', 'r'] as const).map((c) => {
+    const foot = by[`foot_${c}`], ball = by[`ball_${c}`];
+    const x = foot.getWorldPosition(new THREE.Vector3()).x;
+    return { heel: point(foot, new THREE.Vector3(x, 0.004, -0.078), 1), toe: point(ball, new THREE.Vector3(x, 0.004, 0.185), -1) };
+  });
+}
+type Sole = ReturnType<typeof soles>[number]['heel'];
+
+const UP = new THREE.Vector3(0, 1, 0);
+const tmp = { p: new THREE.Vector3(), o: new THREE.Vector3(), d: new THREE.Vector3(), q: new THREE.Quaternion(), m: new THREE.Quaternion(), w: new THREE.Quaternion() };
+
+/**
+ * How far the bone must turn about its joint, around a level axis (put in `axis`), to bring the point up to
+ * `floor` in `space`, the person's own frame. Zero when it is already above. The axis is the foot's own
+ * across, laid level: it turns smoothly with the foot, also when the toes point straight down.
+ */
+function needed(space: THREE.Object3D, { bone, pt, side }: Sole, axis: THREE.Vector3, floor = 0) {
+  const { p, o, d, q, m } = tmp;
+  axis.copy(side).applyQuaternion(bone.getWorldQuaternion(q)).applyQuaternion(space.getWorldQuaternion(m).invert());
+  axis.y = 0;
+  if (axis.lengthSq() < 1e-8) axis.set(side.x, 0, 0);
+  axis.normalize();
+  space.worldToLocal(bone.localToWorld(p.copy(pt)));
+  space.worldToLocal(bone.getWorldPosition(o));
+  if (p.y >= floor) return 0;
+  p.sub(o);
+  // turning about the axis carries `d` (level, square to it) up: the point's height is r·sin(its angle from d)
+  const along = p.dot(d.crossVectors(UP, axis));
+  const r = Math.hypot(along, p.y);
+  if (r < 1e-4) return 0;
+  return Math.max(0, Math.asin(THREE.MathUtils.clamp((floor - o.y) / r, -1, 1)) - Math.atan2(p.y, along));
+}
+
+/** Turns `bone` by `angle` about `axis`, an axis in `space`. */
+function turnBy(space: THREE.Object3D, bone: THREE.Bone, axis: THREE.Vector3, angle: number) {
+  const { q, m, w } = tmp;
+  // the turn in the person's own space, then in the world, then relative to the bone's parent
+  space.getWorldQuaternion(m);
+  q.setFromAxisAngle(axis, angle).premultiply(m).multiply(m.invert());
+  bone.getWorldQuaternion(w).premultiply(q);
+  bone.parent!.getWorldQuaternion(m);
+  bone.quaternion.copy(m.invert().multiply(w));
+  bone.updateMatrixWorld(true);
+}
+
+/**
+ * The clips were made for other feet, and two things go wrong with ours. They point the foot far further down
+ * than our stiff shoes were made for, so the top of the shoe twists out of the trouser leg. And ours are
+ * longer, so at every step the heel and the tip of the shoe dip into the floor; fixed frame by frame (as
+ * ground() does) that fix can only react, and the foot snaps into place. But a clip is a known loop, so both
+ * are put right here, once, in the clip itself:
+ * - the foot points down no further than a little past how the shoe was made (easing into that limit);
+ * - a foot that would dip into the floor is brought up whole, turned just as the clip has it, by bending the
+ *   knee a little, and by no more than it would dip. How far it dips grows from nothing and shrinks back to
+ *   nothing, so the lift does too: no snap, and a foot that is on the ground stays on it.
+ * ground() is then left with next to nothing to do.
+ */
+function plant(clip: THREE.AnimationClip, frames: number) {
+  const { list, by } = skeleton(0.18);
+  aPose(by);
+  const space = new THREE.Group();
+  space.add(list[0]);
+  space.updateMatrixWorld(true);
+  const feet = soles(by);
+  const n = frames - 1; // the last frame is the first again
+  const tracks = clip.tracks.map((t) => {
+    const [bone, prop] = t.name.split('.') as [string, 'quaternion' | 'position'];
+    return { t, target: by[bone][prop], size: prop === 'position' ? 3 : 4 };
+  });
+  const pose = (i: number) => {
+    for (const { t, target, size } of tracks) target.fromArray(t.values, i * size);
+    space.updateMatrixWorld(true);
+  };
+  const floor = 0.002; // a little room, for the frames in between
+  const v = new THREE.Vector3();
+  // `space` stands still at the origin: world and person coincide
+  const height = (s: Sole) => s.bone.localToWorld(v.copy(s.pt)).y;
+  const legs = (['l', 'r'] as const).map((c, s) => {
+    const leg = { thigh: by[`thigh_${c}`], calf: by[`calf_${c}`], foot: by[`foot_${c}`], ball: by[`ball_${c}`], sole: feet[s], hinge: new THREE.Vector3(), made: 0 };
+    leg.made = ankleAngle(leg); // still in the pose the body was built in
+    return leg;
+  });
+  for (const leg of legs) {
+    // the knee's hinge, in the thigh's own frame: taken where the clip bends the knee most
+    let most = 0;
+    for (let i = 0; i < n; i++) {
+      pose(i);
+      const [hip, knee, ankle] = [leg.thigh, leg.calf, leg.foot].map((b) => b.getWorldPosition(new THREE.Vector3()));
+      const across = knee.clone().sub(hip).cross(ankle.sub(knee));
+      if (across.length() > most) {
+        most = across.length();
+        leg.hinge.copy(across.normalize().applyQuaternion(leg.thigh.getWorldQuaternion(new THREE.Quaternion()).invert()));
+      }
+    }
+  }
+  /** The clip's frame `i`, the feet pointing no further down than the shoes allow. */
+  const shape = (i: number) => {
+    pose(i);
+    for (const l of legs) stiffen(space, l);
+  };
+  // how far each foot must come up: just what it would dip, so a planted foot never hovers
+  const lift = legs.map((l) =>
+    Array.from({ length: n }, (_, i) => {
+      shape(i);
+      return Math.max(0, floor - Math.min(height(l.sole.heel), height(l.sole.toe)));
+    }),
+  );
+  const out = legs.map(() => ({ thigh: new Float32Array(frames * 4), calf: new Float32Array(frames * 4), foot: new Float32Array(frames * 4) }));
+  for (let i = 0; i < frames; i++) {
+    shape(i % n);
+    legs.forEach((l, s) => {
+      raiseFoot(space, l, lift[s][i % n]);
+      l.thigh.quaternion.toArray(out[s].thigh, i * 4);
+      l.calf.quaternion.toArray(out[s].calf, i * 4);
+      l.foot.quaternion.toArray(out[s].foot, i * 4);
+    });
+  }
+  legs.forEach((l, s) => {
+    for (const { t } of tracks)
+      for (const part of ['thigh', 'calf', 'foot'] as const) if (t.name === `${l[part].name}.quaternion`) t.values = out[s][part];
+  });
+}
+
+type Leg = { thigh: THREE.Bone; calf: THREE.Bone; foot: THREE.Bone; ball: THREE.Bone; hinge: THREE.Vector3; made: number };
+
+const at = (b: THREE.Bone) => b.getWorldPosition(new THREE.Vector3());
+/** The angle between shin and foot (the ankle to the ball): smaller is pointed further down. */
+const ankleAngle = (l: Leg) => at(l.foot).sub(at(l.calf)).angleTo(at(l.ball).sub(at(l.foot)));
+
+/**
+ * Turns the foot up where the clip points it further down than the shoe can follow: at most 15° past the
+ * pose the shoe was made in, with a soft limit (well above it nothing changes; towards it the foot eases in).
+ */
+function stiffen(space: THREE.Object3D, l: Leg) {
+  const low = l.made - THREE.MathUtils.degToRad(15), soft = THREE.MathUtils.degToRad(5);
+  const now = ankleAngle(l);
+  const want = low + soft * Math.log1p(Math.exp((now - low) / soft));
+  if (want - now < 1e-4) return;
+  // turning about shin × foot opens the angle between them
+  const axis = at(l.foot).sub(at(l.calf)).cross(at(l.ball).sub(at(l.foot))).normalize();
+  turnBy(space, l.foot, axis, want - now);
+}
+
+/**
+ * Brings the foot `h` straight up, turned exactly as it was: the knee bends a little more and the thigh
+ * swings to match. The shoe keeps its angle to the leg, so nothing pokes through anything.
+ */
+function raiseFoot(space: THREE.Object3D, l: Leg, h: number) {
+  if (h <= 0) return;
+  const hip = l.thigh.getWorldPosition(new THREE.Vector3());
+  const knee = l.calf.getWorldPosition(new THREE.Vector3());
+  const ankle = l.foot.getWorldPosition(new THREE.Vector3());
+  const footTurn = l.foot.getWorldQuaternion(new THREE.Quaternion());
+  const target = ankle.clone().setY(ankle.y + h);
+  // the knee: bent until hip and ankle are as far apart as hip and target
+  const a = hip.distanceTo(knee), b = knee.distanceTo(ankle);
+  const c = Math.min(hip.distanceTo(target), a + b - 1e-5);
+  const angle = (x: number) => Math.acos(THREE.MathUtils.clamp(x, -1, 1));
+  const now = angle(hip.clone().sub(knee).dot(ankle.clone().sub(knee)) / (a * b));
+  const want = angle((a * a + b * b - c * c) / (2 * a * b));
+  const hinge = l.hinge.clone().applyQuaternion(l.thigh.getWorldQuaternion(new THREE.Quaternion())).normalize();
+  turnBy(space, l.calf, hinge, now - want);
+  // the thigh: swung so the ankle lands on the target
+  const swing = new THREE.Quaternion().setFromUnitVectors(
+    l.foot.getWorldPosition(new THREE.Vector3()).sub(hip).normalize(),
+    target.sub(hip).normalize(),
+  );
+  const w = l.thigh.getWorldQuaternion(new THREE.Quaternion()).premultiply(swing);
+  l.thigh.quaternion.copy(l.thigh.parent!.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(w));
+  l.thigh.updateMatrixWorld(true);
+  // the foot: turned back to how the clip had it
+  l.foot.quaternion.copy(l.calf.getWorldQuaternion(new THREE.Quaternion()).invert().multiply(footTurn));
+  l.foot.updateMatrixWorld(true);
+}
+
+/**
+ * The clips come at 30 frames a second, and three.js goes from one to the next in a straight line: every joint
+ * keeps one speed for a thirtieth of a second, then changes it at once. Thirty little jolts a second, and a
+ * walk that feels jerky. So each clip is resampled four times as finely along a smooth curve through its own
+ * frames (Catmull-Rom, round the loop): it passes through every frame the clip has, and in between the speed
+ * changes gradually.
+ */
+function smoothen(clip: THREE.AnimationClip, frames: number, k = 4) {
+  const n = frames - 1; // the last frame is the first again
+  const times = new Float32Array(n * k + 1).map((_, i) => (i / (n * k)) * clip.duration);
+  const cr = (p0: number, p1: number, p2: number, p3: number, t: number) =>
+    0.5 * (2 * p1 + (p2 - p0) * t + (2 * p0 - 5 * p1 + 4 * p2 - p3) * t * t + (3 * p1 - p0 - 3 * p2 + p3) * t * t * t);
+  clip.tracks = clip.tracks.map((track) => {
+    const size = track.getValueSize(), v = track.values;
+    const at = (i: number) => Array.from(v.subarray((((i % n) + n) % n) * size, (((i % n) + n) % n) * size + size));
+    const out = new Float32Array(times.length * size);
+    for (let i = 0; i < n; i++) {
+      const p = [at(i - 1), at(i), at(i + 1), at(i + 2)];
+      // quaternions q and -q are the same turn: take the four on the same side, or the curve takes the long way
+      if (size === 4) for (const q of [p[0], p[2], p[3]]) if (q[0] * p[1][0] + q[1] * p[1][1] + q[2] * p[1][2] + q[3] * p[1][3] < 0) for (let c = 0; c < 4; c++) q[c] = -q[c];
+      for (let j = 0; j < k; j++) {
+        const t = j / k, o = (i * k + j) * size;
+        for (let c = 0; c < size; c++) out[o + c] = cr(p[0][c], p[1][c], p[2][c], p[3][c], t);
+        if (size === 4) {
+          const len = Math.hypot(out[o], out[o + 1], out[o + 2], out[o + 3]);
+          for (let c = 0; c < 4; c++) out[o + c] /= len;
+        }
+      }
+    }
+    out.set(out.subarray(0, size), n * k * size);
+    const Track = size === 4 ? THREE.QuaternionKeyframeTrack : THREE.VectorKeyframeTrack;
+    return new Track(track.name, times, out);
+  });
+}
+
 /** Where every joint is in the pose bodies are bound in (for building a body elsewhere, as in Blender). */
 export function bindPose(armX = 0.18) {
   const { list, by } = skeleton(armX);
@@ -108,7 +332,11 @@ function clips(pelvisRest: THREE.Vector3) {
     const pos = new Float32Array(c.pelvis.length);
     for (let i = 0; i < pos.length; i++) pos[i] = pelvisRest.getComponent(i % 3) + (c.pelvis[i] - src[i % 3]) * k;
     tracks.push(new THREE.VectorKeyframeTrack('pelvis.position', times, pos));
-    clipCache.set(name as Move, new THREE.AnimationClip(name, c.dur, tracks));
+    const clip = new THREE.AnimationClip(name, c.dur, tracks);
+    // sitters' feet hang where they hang: they are not on the ground they are measured from
+    if (!/^(Sitting|Driving)/.test(name)) plant(clip, c.frames);
+    smoothen(clip, c.frames);
+    clipCache.set(name as Move, clip);
   }
   return clipCache;
 }
@@ -161,49 +389,26 @@ export function actor(seed: number, material: THREE.Material, wish?: Wish, body?
   mesh.updateMatrixWorld(true);
   mesh.bind(new THREE.Skeleton(list));
   mesh.castShadow = true;
+  const sole = soles(by);
   mesh.scale.setScalar(f.size);
-  // Points on the sole that must stay above the ground: the back of the heel (moves with the foot) and the
-  // tip of the shoe (moves with the toes). Taken now, in the pose the body was built in.
-  const sole = (['l', 'r'] as const).map((c) => {
-    const x = by[`foot_${c}`].getWorldPosition(new THREE.Vector3()).x;
-    return {
-      foot: by[`foot_${c}`],
-      ball: by[`ball_${c}`],
-      heel: by[`foot_${c}`].worldToLocal(new THREE.Vector3(x, 0.004, -0.078)),
-      toe: by[`ball_${c}`].worldToLocal(new THREE.Vector3(x, 0.004, 0.185)),
-    };
-  });
   const mixer = new THREE.AnimationMixer(mesh);
   const all = clips(pelvisRest);
-  const tmp = { p: new THREE.Vector3(), o: new THREE.Vector3(), k: new THREE.Vector3(), q: new THREE.Quaternion(), m: new THREE.Quaternion(), w: new THREE.Quaternion() };
+  const axis = new THREE.Vector3();
   // What the ground check changed, to be put back before the next frame. The mixer only writes a bone when the
   // clip's value changes, so a correction left in place would stick (a toe stayed bent all through a stride).
   const touched = new Map<THREE.Bone, THREE.Quaternion>();
   // How far each correction is turned now. It comes on at once (nothing may go through the floor) but lets go
   // over a fifth of a second, or the toes flick back the moment the foot leaves the ground.
   const held = new Map<THREE.Bone, number>();
-  /** Turns `bone` about its joint, around a level axis, enough to bring `pt` (fixed to the bone) up to the ground. */
-  const lift = (bone: THREE.Bone, pt: THREE.Vector3, dt: number) => {
-    const { p, o, k, q, m, w } = tmp;
-    mesh.worldToLocal(bone.localToWorld(p.copy(pt)));
-    mesh.worldToLocal(bone.getWorldPosition(o));
-    p.sub(o);
-    const len = p.length();
-    const flat = Math.hypot(p.x, p.z);
-    if (len < 1e-4 || flat < 1e-4) return;
-    const need = Math.max(0, Math.asin(THREE.MathUtils.clamp(-o.y / len, -1, 1)) - Math.atan2(p.y, flat));
+  /** Turns the bone about its joint, around a level axis, enough to bring the point up to the ground. */
+  const lift = (s: Sole, dt: number) => {
+    const { bone } = s;
+    const need = needed(mesh, s, axis);
     const turn = Math.max(need, (held.get(bone) ?? 0) - 4.5 * dt);
     held.set(bone, turn);
     if (turn <= 0) return;
     if (!touched.has(bone)) touched.set(bone, bone.quaternion.clone());
-    k.set(p.x / flat, 0, p.z / flat).cross(new THREE.Vector3(0, 1, 0)).normalize();
-    // the turn in the person's own space, then in the world, then relative to the bone's parent
-    mesh.getWorldQuaternion(m);
-    q.setFromAxisAngle(k, turn).premultiply(m).multiply(m.clone().invert());
-    bone.getWorldQuaternion(w).premultiply(q);
-    bone.parent!.getWorldQuaternion(m);
-    bone.quaternion.copy(m.invert().multiply(w));
-    bone.updateMatrixWorld(true);
+    turnBy(mesh, bone, axis, turn);
   };
   let current: THREE.AnimationAction | null = null;
   return {
@@ -224,10 +429,6 @@ export function actor(seed: number, material: THREE.Material, wish?: Wish, body?
       current = next;
       return next;
     },
-    /**
-     * After the animation has moved the bones: no heel or shoe tip below the ground (the person's own origin).
-     * The clip was made for other feet; ours are longer and would dip into the floor and pop back out.
-     */
     /** Moves the animation on by dt seconds and (unless they sit) keeps the feet out of the floor. */
     update(dt: number, feet = true) {
       for (const [b, q] of touched) b.quaternion.copy(q);
@@ -245,15 +446,23 @@ export function actor(seed: number, material: THREE.Material, wish?: Wish, body?
       b.parent!.getWorldQuaternion(m);
       b.quaternion.copy(m.invert().multiply(w));
     },
+    /**
+     * After the animation has moved the bones: no heel or shoe tip below the ground (the person's own origin).
+     * The clips already keep the feet up (see plant); this catches what is left, as in a fade between two clips.
+     */
     ground(dt = 0) {
       mesh.updateMatrixWorld(true);
       for (const f of sole) {
-        lift(f.foot, f.heel, dt);
-        lift(f.ball, f.toe, dt);
+        lift(f.heel, dt);
+        lift(f.toe, dt);
       }
     },
+    /**
+     * Frees the body on the GPU (three.js uploads it again should it be drawn after all). The animation is left
+     * running: React in development unmounts and remounts every component once, and a person stopped then
+     * stood in the starting pose for good. One that is really gone takes its mixer with it.
+     */
     dispose() {
-      mixer.stopAllAction();
       g.dispose();
     },
   };
