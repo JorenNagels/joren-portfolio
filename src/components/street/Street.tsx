@@ -13,6 +13,7 @@ import { BeatArt } from '../BeatArt';
 import { GhentClock } from '../GhentClock';
 import { streetCopy as t } from './copy';
 import { kindOf, labelOf } from './labels';
+import { Loader } from './Loader';
 import { STOPS } from './plan';
 import { skyAt } from './sky';
 import type { StreetState } from './StreetScene';
@@ -31,12 +32,26 @@ const stops = STOPS.map((s) => ({ ...s, x: s.x - 8 }));
 export function Street({ locale: l }: { locale: Locale }) {
   const root = useRef<HTMLElement>(null);
   const stage = useRef<HTMLDivElement>(null);
-  const state = useRef<StreetState>({ x: stops[0].x, intro: 0, outro: 0, p: 0, pointer: false, reduced: false, focus: null });
+  const state = useRef<StreetState>({ x: stops[0].x, intro: 0, outro: 0, p: 0, pointer: false, reduced: false, focus: null, arrival: null });
   const els = useRef<Record<string, HTMLElement | null>>({});
   const [webgl, setWebgl] = useState<boolean | null>(null);
   const [active, setActive] = useState(true);
   const [open, setOpen] = useState<string | null>(null);
   const [current, setCurrent] = useState(stops[0].id);
+  // Loading: the 3D code is in and the street built, then its first frame drawn, then the pop-up has folded away.
+  const [built, setBuilt] = useState(false);
+  const [ready, setReady] = useState(false);
+  const [shown, setShown] = useState(false);
+  const onReady = useCallback(() => setReady(true), []);
+  // The loader says where it drew the houses, so the 3D camera can start on the very same picture.
+  const onMeasure = useCallback((m: number, base: number) => {
+    if (!state.current.reduced) state.current.arrival = { m, base, at: Infinity };
+  }, []);
+  const onShown = useCallback(() => {
+    setShown(true);
+    // the swing starts once the drawn houses have dissolved into the real ones
+    if (state.current.arrival) state.current.arrival.at = performance.now() + 1100;
+  }, []);
 
   // Walking slows down in front of each poster.
   const table = useRef<{ x: number[]; c: number[] } | null>(null);
@@ -78,6 +93,8 @@ export function Street({ locale: l }: { locale: Locale }) {
     } catch {}
     setWebgl(ok);
     document.documentElement.classList.toggle('walk', ok);
+    // the same chunk next/dynamic loads below: this only tells the loader when it is in
+    if (ok) import('./StreetScene').then(() => setBuilt(true));
     state.current.reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
   }, []);
 
@@ -166,7 +183,10 @@ export function Street({ locale: l }: { locale: Locale }) {
   return (
     <section ref={root} className="relative h-[1000vh]" aria-label={person.name}>
       <div ref={stage} className="sticky top-0 h-dvh overflow-hidden text-[var(--fg)]" style={{ background: 'linear-gradient(to bottom, rgb(118,196,186), rgb(238,232,210) 62%)', ['--fg' as string]: '#25262f' }}>
-        {webgl && <StreetScene state={state} locale={l} active={active} onOpen={openStop} />}
+        <div className={`absolute inset-0 transition-opacity duration-500 ease-out ${shown ? 'opacity-100' : 'opacity-0'}`}>
+          {webgl && <StreetScene state={state} locale={l} active={active} onOpen={openStop} onReady={onReady} />}
+        </div>
+        <Loader l={l} built={built} ready={ready} onMeasure={onMeasure} onOut={onShown} />
 
         {/* Opening: the name in the sky over the street */}
         <div ref={(x) => { els.current.intro = x; }} className="pointer-events-none absolute inset-x-0 top-0 px-4 pt-24 sm:px-8 sm:pt-28">

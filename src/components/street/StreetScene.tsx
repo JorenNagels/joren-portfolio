@@ -9,6 +9,7 @@ import { loadBody } from './actor';
 import type { Made } from './character';
 import { Crew } from './Crew';
 import { cabinBoat, kayak, ownBoat, type Rider, rowBoat, sloep, tourBoat } from './folk';
+import { GRASLEI, rowLength } from './plan';
 import { BRIDGE, buildBackground, buildStreet, buildTowers, FAR, MAT, MIDSTREAM, palette, QUAY, RIVER, WATER } from './houses';
 import { People, Sitters } from './People';
 import { posterTexture } from './posters';
@@ -23,6 +24,12 @@ export type StreetState = {
   pointer: boolean;
   reduced: boolean;
   focus: string | null;
+  /**
+   * The match cut from the loader: the camera starts square on to the Graslei, where the pop-up row was drawn and at
+   * the same size, then swings up into the opening shot. m: pixels per metre in the loader; base: how far down the
+   * screen the houses stand, in pixels; at: when the swing starts (Infinity: hold the shot). Null once it is over.
+   */
+  arrival: { m: number; base: number; at: number } | null;
 };
 
 export const street = buildStreet();
@@ -125,6 +132,12 @@ const BOW_AHEAD = 4.9;
 const BOW_BELOW = 1.42;
 // Eye height in the boat, above the street.
 const EYE = 2.5;
+// The arrival shot: from just off the Korenlei quay, square on to the middle of the Graslei; and how long the swing
+// from there into the opening shot takes, and how high it climbs on the way.
+const ARRIVE_X = rowLength(GRASLEI) / 2;
+const ARRIVE_Z = 28;
+const ARRIVE_MS = 2800;
+const ARRIVE_RISE = 9;
 
 /**
  * Your own boat. It is always there, on the water, where the ride has got to: the opening shot comes down into it,
@@ -230,7 +243,7 @@ function Posters({ locale, state, onOpen }: { locale: Locale; state: RefObject<S
 
 /* ---------------- Camera, light, and the ink pipeline ---------------- */
 
-function Scene({ state, locale, onOpen, onSlow }: { state: RefObject<StreetState>; locale: Locale; onOpen: (id: string) => void; onSlow: (dpr: number) => void }) {
+function Scene({ state, locale, onOpen, onSlow, onReady }: { state: RefObject<StreetState>; locale: Locale; onOpen: (id: string) => void; onSlow: (dpr: number) => void; onReady: () => void }) {
   const { camera, size, gl, scene } = useThree();
   // the people's body and clothes, made in Blender (public/people/person.glb); they appear once it is in
   const [body, setBody] = useState<Made>();
@@ -245,6 +258,8 @@ function Scene({ state, locale, onOpen, onSlow }: { state: RefObject<StreetState
     load.current = { ...load.current, frames: 0, time: 0, from: performance.now() + 3000 };
   }, [body]);
   const frame = useRef(0);
+  // The first frame also compiles every shader and so takes long; from the second one the street is really there.
+  const drawn = useRef(0);
   const sun = useRef<THREE.DirectionalLight>(null);
   const hemi = useRef<THREE.HemisphereLight>(null);
   const focus = useRef(0);
@@ -261,6 +276,8 @@ function Scene({ state, locale, onOpen, onSlow }: { state: RefObject<StreetState
       wpos: new THREE.Vector3(),
       wlook: new THREE.Vector3(),
       wdir: new THREE.Vector3(),
+      apos: new THREE.Vector3(),
+      adir: new THREE.Vector3(),
       buf: new THREE.Vector2(),
     }),
     [],
@@ -405,11 +422,35 @@ function Scene({ state, locale, onOpen, onSlow }: { state: RefObject<StreetState
       v.look.lerp(v.flook, e);
     } else if (focus.current < 0.001) focusId.current = null;
 
+    // --- Arriving from the loader: start where its houses were drawn, then swing round into the shot above.
+    let fovNow = fov;
+    const a = s.arrival;
+    if (a) {
+      const t = (performance.now() - a.at) / ARRIVE_MS;
+      if (t >= 1) s.arrival = null;
+      else {
+        const e = t <= 0 ? 0 : easeInOut(t);
+        // Facades square on to the camera keep their shape, so only the size has to match: at ARRIVE_Z metres away,
+        // the field of view that makes one metre a.m pixels; and eyes as high above the street as the loader's houses
+        // stand below the middle of the screen.
+        const half = size.height / 2;
+        const aFov = (2 * Math.atan(half / (a.m * ARRIVE_Z)) * 180) / Math.PI;
+        v.apos.set(ARRIVE_X, (a.base - half) / a.m, ARRIVE_Z);
+        v.adir.set(0, 0, -1);
+        v.dir.copy(v.look).sub(v.pos).normalize();
+        v.dir.lerpVectors(v.adir, v.dir, e).normalize();
+        v.pos.lerpVectors(v.apos, v.pos, e);
+        v.pos.y += Math.sin(Math.PI * e) * ARRIVE_RISE;
+        v.look.copy(v.pos).add(v.dir);
+        fovNow = aFov + (fov - aFov) * e;
+      }
+    }
+
     const cam = camera as THREE.PerspectiveCamera;
     camera.position.copy(v.pos);
     camera.lookAt(v.look);
-    if (cam.fov !== fov) {
-      cam.fov = fov;
+    if (cam.fov !== fovNow) {
+      cam.fov = fovNow;
       cam.updateProjectionMatrix();
     }
 
@@ -466,6 +507,7 @@ function Scene({ state, locale, onOpen, onSlow }: { state: RefObject<StreetState
     srgb(u.uHaze.value, sky.horizon);
     gl.clear();
     gl.render(ink.scene, ink.camera);
+    if (drawn.current++ === 1) onReady();
   }, 1);
 
   return (
@@ -506,7 +548,7 @@ function Scene({ state, locale, onOpen, onSlow }: { state: RefObject<StreetState
   );
 }
 
-export default function StreetScene(props: { state: RefObject<StreetState>; locale: Locale; active: boolean; onOpen: (id: string) => void }) {
+export default function StreetScene(props: { state: RefObject<StreetState>; locale: Locale; active: boolean; onOpen: (id: string) => void; onReady: () => void }) {
   const { active, ...rest } = props;
   const { state } = props;
   // The render size lives here, not only inside three.js: the canvas puts back whatever size it is given each
