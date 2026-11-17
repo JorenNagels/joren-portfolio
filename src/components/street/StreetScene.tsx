@@ -51,7 +51,7 @@ function closing(portrait: boolean, x: number, pos: THREE.Vector3, look: THREE.V
 // Where the opening shot frames the name (with the scroll hint under it), and the closing shot the thanks. A board
 // is as big in the street as it is far away: on a tall screen the name hangs closer, or its lower edge would dip
 // below the roofs and into the houses on both quays.
-const TITLE: Record<'wide' | 'tall', Framing> = { wide: { y: 0.36, w: 0.7, distance: 85 }, tall: { y: 0.32, w: 0.78, distance: 50 } };
+const TITLE: Record<'wide' | 'tall', Framing> = { wide: { y: 0.36, w: 0.52, distance: 85 }, tall: { y: 0.32, w: 0.64, distance: 50 } };
 const THANKS: Record<'wide' | 'tall', Framing> = { wide: { y: 0.58, w: 0.56, distance: 80 }, tall: { y: 0.58, w: 0.84, distance: 80 } };
 // How high above its place a board waits before it is let down into the picture, in metres.
 const LIFT = 80;
@@ -86,10 +86,13 @@ function snapToShadowPixels(l: THREE.DirectionalLight) {
 // Render sizes to fall back through when frames take too long.
 const SIZES = [2, 1.5, 1];
 
-// How far the mouse can turn the view: sideways, up and down (radians).
+// How far the mouse's own look reaches: sideways, up and down (radians).
 const YAW = 0.85;
 const PITCH_UP = 0.3;
 const PITCH_DOWN = 0.12;
+// How far a drag can turn you: the whole way round, so you can watch the street you have already passed.
+const TURN = Math.PI;
+const TURN_SPEED = 0.0055; // radians a pixel dragged
 
 const toonCache = new Map<string, THREE.MeshToonMaterial>();
 function toon(color: string) {
@@ -328,6 +331,9 @@ function Scene({ state, locale, onOpen, onSlow, onReady }: { state: RefObject<St
   const ink = useMemo(inkPass, []);
   const boards = useMemo(() => ({ title: skyBoard(), thanks: skyBoard() }), []);
   const tall = size.width < size.height;
+  // The screen in device pixels, in steps of 256: the boards are repainted when the window really changes size,
+  // not on every pixel of a drag.
+  const px = Math.round((size.width * gl.getPixelRatio()) / 256) * 256;
   useEffect(() => {
     let alive = true;
     const font = getComputedStyle(document.body).fontFamily;
@@ -346,19 +352,33 @@ function Scene({ state, locale, onOpen, onSlow, onReady }: { state: RefObject<St
         { text: t.endText[locale], size: S * (tall ? 0.42 : 0.36), weight: 500, gap: S * 0.16 },
       ];
       const aniso = gl.capabilities.getMaxAnisotropy();
-      paintBoard(boards.title, title, INK, font, aniso);
-      paintBoard(boards.thanks, thanks, CREAM, font, aniso);
+      // Paint each board at twice the width it covers on the screen, so the letters stay sharp when the shot
+      // frames them and there is something left to shrink when the camera moves on. The ink line round the
+      // letters is painted in at the same two pixels the ink pass used to draw it (skyBoard.ts).
+      const plan = (at: Framing) => {
+        const screen = px * at.w;
+        const fit = Math.min(screen * 2, 4096, gl.capabilities.maxTextureSize);
+        return { fit, edge: { color: INK, width: (2 * fit) / screen } };
+      };
+      const a = plan(TITLE[tall ? 'tall' : 'wide']);
+      const z = plan(THANKS[tall ? 'tall' : 'wide']);
+      paintBoard(boards.title, title, INK, font, aniso, a.fit, a.edge);
+      paintBoard(boards.thanks, thanks, CREAM, font, aniso, z.fit, z.edge);
     });
     return () => {
       alive = false;
     };
-  }, [boards, locale, tall, gl]);
+  }, [boards, locale, tall, gl, px]);
   const normals = useMemo(() => new THREE.MeshNormalMaterial(), []);
   const targets = useMemo(() => {
     // 8 bits a channel: the colour is stored sRGB-encoded, so the darks keep as many steps as on screen and nothing
     // bands, and the normals only feed the ink lines. Half the memory and bandwidth of half-floats.
     const color = new THREE.WebGLRenderTarget(1, 1, { samples: coarse ? 2 : 4, colorSpace: THREE.SRGBColorSpace });
     const normal = new THREE.WebGLRenderTarget(1, 1);
+    // Read pixel for pixel. This buffer is not a picture but a set of readings, and a blend of two of them is a
+    // reading of nothing: half a normal, or the tag of a board that is not there (skyBoard.ts).
+    normal.texture.minFilter = THREE.NearestFilter;
+    normal.texture.magFilter = THREE.NearestFilter;
     normal.depthTexture = new THREE.DepthTexture(1, 1);
     return { color, normal };
   }, []);
@@ -368,33 +388,43 @@ function Scene({ state, locale, onOpen, onSlow, onReady }: { state: RefObject<St
     gl.shadowMap.autoUpdate = false;
   }, [scene, gl]);
 
-  // Look around by moving the mouse: the pointer's place on screen sets where you look, within a fixed range.
-  // A finger has no hover, so on touch (and with reduced motion) you drag sideways instead.
-  const look = useRef({ yaw: 0, pitch: 0, ty: 0, tp: 0, drag: null as null | { x: number; y: number } });
+  // Two ways of looking, added together. `ty` is the gentle look the mouse's place on screen gives you, within
+  // YAW either side of straight ahead. `turn` is which way you are facing, and a drag — with a finger or with
+  // the mouse held down — swings it the whole way round, so you can look back down the river behind the boat.
+  const look = useRef({ yaw: 0, pitch: 0, ty: 0, tp: 0, turn: 0, nx: 0, drag: null as null | { x: number; y: number } });
   useEffect(() => {
     const el = gl.domElement;
     el.style.touchAction = 'pan-y'; // vertical swipes still scroll the page
+    const clamp = (a: number) => Math.max(-TURN, Math.min(TURN, a));
     const follows = (e: PointerEvent) => e.pointerType === 'mouse' && !state.current.reduced;
     const down = (e: PointerEvent) => {
-      if (state.current.focus || follows(e)) return;
+      if (state.current.focus) return;
       look.current.drag = { x: e.clientX, y: e.clientY };
     };
     const move = (e: PointerEvent) => {
       const L = look.current;
-      if (follows(e)) {
-        if (state.current.focus) return;
-        const nx = (e.clientX / innerWidth) * 2 - 1;
-        const ny = (e.clientY / innerHeight) * 2 - 1;
-        L.ty = -nx * YAW;
-        L.tp = -ny * (ny < 0 ? PITCH_UP : PITCH_DOWN);
-        return;
+      if (state.current.focus) return;
+      if (L.drag) {
+        L.turn = clamp(L.turn + (e.clientX - L.drag.x) * TURN_SPEED);
+        L.drag = { x: e.clientX, y: e.clientY };
       }
-      if (!L.drag) return;
-      L.ty = Math.max(-1.3, Math.min(1.3, L.ty + (e.clientX - L.drag.x) * 0.0045));
-      L.drag = { x: e.clientX, y: e.clientY };
+      if (!follows(e)) return;
+      L.nx = (e.clientX / innerWidth) * 2 - 1;
+      const ny = (e.clientY / innerHeight) * 2 - 1;
+      L.tp = -ny * (ny < 0 ? PITCH_UP : PITCH_DOWN);
+      // While you are dragging, the mouse is turning you; letting it also steer the gentle look would have the
+      // two pulling against each other.
+      if (!L.drag) L.ty = -L.nx * YAW;
     };
     const up = () => {
-      look.current.drag = null;
+      const L = look.current;
+      if (!L.drag) return;
+      L.drag = null;
+      // Hand the view back to the mouse without it moving: where you ended up facing stays put, and the pointer
+      // picks up the gentle look again from wherever it is now.
+      const held = -L.nx * YAW;
+      L.turn = clamp(L.turn + L.ty - held);
+      L.ty = held;
     };
     el.addEventListener('pointerdown', down);
     addEventListener('pointermove', move, { passive: true });
@@ -432,7 +462,7 @@ function Scene({ state, locale, onOpen, onSlow, onReady }: { state: RefObject<St
     // Facing down the river, turned towards wherever the pointer is.
     const L = look.current;
     const k = 1 - Math.exp(-dt * 4.5);
-    L.yaw += (L.ty - L.yaw) * k;
+    L.yaw += (L.turn + L.ty - L.yaw) * k;
     L.pitch += (L.tp - L.pitch) * k;
     v.dir.set(1, 0, 0).applyAxisAngle(UP, L.yaw);
     v.dir.y = Math.tan(L.pitch) - 0.02;

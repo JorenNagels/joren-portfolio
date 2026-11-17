@@ -2,12 +2,12 @@ import type { L } from '@/content/types';
 
 // Words used in the street itself: posters, captions, the panel and the ending.
 export const streetCopy = {
-  role: { nl: 'Developer in Gent', en: 'Developer in Ghent' },
+  role: { nl: 'Software Engineer', en: 'Software Engineer' },
   loadHouses: { nl: 'De huizen rechtzetten', en: 'Propping up the houses' },
   loadBoat: { nl: 'De boot te water laten', en: 'Putting the boat in the water' },
-  scroll: { nl: 'Scroll om met de boot over de Leie te varen', en: 'Scroll to take the boat down the Leie' },
-  hint: { nl: 'Beweeg je muis om rond te kijken. Klik op een affiche voor meer.', en: 'Move your mouse to look around. Click a poster to read more.' },
-  hintTouch: { nl: 'Veeg opzij om rond te kijken. Tik op een affiche voor meer.', en: 'Swipe sideways to look around. Tap a poster to read more.' },
+  scroll: { nl: 'Scroll om te varen', en: 'Scroll to sail' },
+  hint: { nl: 'Beweeg je muis om rond te kijken, sleep om je om te draaien. Klik op een affiche voor meer.', en: 'Move your mouse to look around, drag to turn right round. Click a poster to read more.' },
+  hintTouch: { nl: 'Veeg opzij om rond te kijken, ook naar achter. Tik op een affiche voor meer.', en: 'Swipe sideways to look around, behind you too. Tap a poster to read more.' },
   hello: { nl: 'Hallo, ik ben', en: 'Hi, I’m' },
   about: { nl: 'Over mij', en: 'About me' },
   work: { nl: 'Werk', en: 'Work' },

@@ -7,8 +7,13 @@ import * as THREE from 'three';
  *
  * The colour pass draws a board with the rest of the town, so towers and clouds can pass in front of it. The
  * normals pass would draw the whole rectangle (one material for everything there), so the scene hides the boards
- * for that pass and draws them on their own with `cutout`, which only keeps the letters: the ink lines then go
- * round the letters, like everything else in the street, and not round the board they are painted on.
+ * for that pass and draws them on their own with `cutout`, which only keeps the letters. That pass does two
+ * things: it puts the letters at their real distance in the depth buffer, so the haze over far things does not
+ * settle on them, and it tags them in the alpha channel so the ink pass can leave its outline off them.
+ *
+ * The line round the letters is painted into the words themselves instead (`edge` in paintBoard). The ink pass
+ * finds edges by comparing neighbouring pixels, which can only ever answer per whole pixel, so a line it draws
+ * round a letter comes out as a staircase. The text rasteriser antialiases the same line properly.
  */
 
 export type Line = {
@@ -37,7 +42,13 @@ export function skyBoard() {
     `,
     fragmentShader: /* glsl */ `
       uniform sampler2D map; varying vec2 vUv; varying vec3 vNormal;
-      void main() { if (texture2D(map, vUv).a < 0.5) discard; gl_FragColor = vec4(normalize(vNormal) * 0.5 + 0.5, 1.0); }
+      void main() {
+        // Every pixel the letter touches, not just the ones it more than half covers: the faint edge of a letter
+        // needs the board's distance in the depth buffer too, or the haze settles on it and leaves a pale fringe.
+        if (texture2D(map, vUv).a < 0.02) discard;
+        // Alpha is a tag here, not a colour: 0 is open sky, 1 is the town, 0.5 is a sky board (see toon.ts).
+        gl_FragColor = vec4(normalize(vNormal) * 0.5 + 0.5, 0.5);
+      }
     `,
   });
   const mesh = new THREE.Mesh<THREE.PlaneGeometry, THREE.Material>(new THREE.PlaneGeometry(1, 1), paint);
@@ -47,38 +58,58 @@ export function skyBoard() {
   return { mesh, paint, cutout, ratio: 4, y: 0, placed: '', on: true };
 }
 
-/** Paint lines of text onto the board, centred, top to bottom. */
-export function paintBoard(b: SkyBoard, lines: Line[], color: string, font: string, anisotropy: number) {
+/**
+ * Paint lines of text onto the board, centred, top to bottom.
+ *
+ * `fit` is how wide the board will really be on the screen, in device pixels. The sizes in `lines` are only
+ * proportions: they are scaled together so the painted texture comes out that wide. Painted smaller than the
+ * screen shows it, the letters go soft; painted much larger, the texture costs memory for nothing.
+ */
+export function paintBoard(b: SkyBoard, lines: Line[], color: string, font: string, anisotropy: number, fit?: number, edge?: { color: string; width: number }) {
   const c = document.createElement('canvas');
   const ctx = c.getContext('2d')!;
-  const set = (l: Line) => {
-    ctx.font = `${l.weight} ${l.size}px ${font}`;
-    ctx.letterSpacing = `${((l.tracking ?? 0) * l.size).toFixed(1)}px`;
+  const set = (size: number, l: Line) => {
+    ctx.font = `${l.weight} ${size}px ${font}`;
+    ctx.letterSpacing = `${((l.tracking ?? 0) * size).toFixed(1)}px`;
   };
-  const rows = lines.map((l) => {
-    set(l);
-    const tw = ctx.measureText(l.text).width;
-    return { l, tw, w: l.pill ? tw + l.size * 1.7 : tw, h: l.pill ? l.size * 2.1 : l.size * (l.lead ?? 1.2) };
-  });
-  const pad = Math.round(Math.max(...lines.map((l) => l.size)) * 0.1);
+  const measure = (k: number) =>
+    lines.map((l) => {
+      const s = l.size * k;
+      set(s, l);
+      const tw = ctx.measureText(l.text).width;
+      return { l, s, gap: (l.gap ?? 0) * k, w: l.pill ? tw + s * 1.7 : tw, h: l.pill ? s * 2.1 : s * (l.lead ?? 1.2) };
+    });
+  let rows = measure(1);
+  if (fit) rows = measure(fit / Math.max(...rows.map((r) => r.w)));
+  const pad = Math.round(Math.max(...rows.map((r) => r.s)) * 0.1 + (edge ? edge.width : 0));
   c.width = Math.ceil(Math.max(...rows.map((r) => r.w)) + pad * 2);
-  c.height = Math.ceil(rows.reduce((a, r) => a + (r.l.gap ?? 0) + r.h, 0) + pad * 2);
+  c.height = Math.ceil(rows.reduce((a, r) => a + r.gap + r.h, 0) + pad * 2);
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
+  ctx.lineJoin = 'round';
+  ctx.miterLimit = 2;
+  if (edge) {
+    ctx.strokeStyle = edge.color;
+    ctx.lineWidth = edge.width;
+  }
   let y = pad;
-  for (const { l, w, h } of rows) {
-    y += l.gap ?? 0;
+  for (const { l, s, gap, w, h } of rows) {
+    y += gap;
     const mid = y + h / 2;
     if (l.pill) {
       ctx.fillStyle = l.pill;
       ctx.beginPath();
-      ctx.roundRect(c.width / 2 - w / 2, mid - l.size * 1.0, w, l.size * 2.0, l.size);
+      ctx.roundRect(c.width / 2 - w / 2, mid - s * 1.0, w, s * 2.0, s);
       ctx.fill();
+      // A label is one shape: the line goes round the label, not round the words sitting on it.
+      if (edge) ctx.stroke();
     }
-    set(l);
-    ctx.fillStyle = l.color ?? color;
+    set(s, l);
     // 'middle' centres the em box; nudge down a little so the letters themselves look centred
-    ctx.fillText(l.text, c.width / 2, mid + l.size * 0.04);
+    const base = mid + s * 0.04;
+    if (edge && !l.pill) ctx.strokeText(l.text, c.width / 2, base);
+    ctx.fillStyle = l.color ?? color;
+    ctx.fillText(l.text, c.width / 2, base);
     y += h;
   }
 
