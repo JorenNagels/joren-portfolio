@@ -3,16 +3,21 @@
 import { advance, Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import * as THREE from 'three';
+import { person } from '@/content/profile';
 import type { Locale } from '@/content/types';
 import { onFrame } from '@/lib/ticker';
 import { loadBody } from './actor';
 import type { Made } from './character';
 import { Crew } from './Crew';
 import { cabinBoat, kayak, ownBoat, type Rider, rowBoat, sloep, tourBoat } from './folk';
+import { GRASLEI, RIDE, rowLength } from './plan';
 import { BRIDGE, FAR, MAT, MIDSTREAM, palette, QUAY, RIVER, WATER } from './houses';
 import { People, Sitters } from './People';
 import { posterTexture } from './posters';
+import { streetCopy } from './copy';
+import { type Framing, type Line, paintBoard, placeBoard, skyBoard, split2 } from './skyBoard';
 import { type RGB, skyAt } from './sky';
+import { stage } from './stage';
 import { inkPass, reflectionMaterial, toonMaterial, uniforms, waterMaterial } from './toon';
 import { type World, world } from './world';
 
@@ -24,10 +29,40 @@ export type StreetState = {
   pointer: boolean;
   reduced: boolean;
   focus: string | null;
+  /**
+   * The match cut from the loader: the camera starts square on to the Graslei, where the pop-up row was drawn and at
+   * the same size, then swings up into the opening shot. m: pixels per metre in the loader; base: how far down the
+   * screen the houses stand, in pixels; at: when the swing starts (Infinity: hold the shot). Null once it is over.
+   */
+  arrival: { m: number; base: number; at: number } | null;
 };
 
 // The town starts building (in a worker) as soon as this file loads, alongside everything else that loads with it.
 if (typeof window !== 'undefined') world();
+/** The opening shot: high over the river, looking down it. */
+function opening(portrait: boolean, pos: THREE.Vector3, look: THREE.Vector3) {
+  pos.set(-64, portrait ? 36 : 25, MIDSTREAM);
+  look.set(70, portrait ? 2 : 9, MIDSTREAM);
+}
+
+/** The closing shot, for the boat at x: up and back from it, the whole river below and the bridge ahead. */
+function closing(portrait: boolean, x: number, pos: THREE.Vector3, look: THREE.Vector3) {
+  pos.set(x - 52, portrait ? 30 : 19, MIDSTREAM + (portrait ? 6 : 0));
+  look.set(BRIDGE + 90, portrait ? 0 : 7, MIDSTREAM - (portrait ? 14 : 0));
+}
+
+// Where the opening shot frames the name (with the scroll hint under it), and the closing shot the thanks. A board
+// is as big in the street as it is far away: on a tall screen the name hangs closer, or its lower edge would dip
+// below the roofs and into the houses on both quays.
+const TITLE: Record<'wide' | 'tall', Framing> = { wide: { y: 0.36, w: 0.52, distance: 85 }, tall: { y: 0.32, w: 0.64, distance: 50 } };
+const THANKS: Record<'wide' | 'tall', Framing> = { wide: { y: 0.58, w: 0.56, distance: 80 }, tall: { y: 0.58, w: 0.84, distance: 80 } };
+// How high above its place a board waits before it is let down into the picture, in metres.
+const LIFT = 80;
+const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
+const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+const INK = '#25262f';
+const CREAM = '#f4f0e4';
+
 const easeInOut = (x: number) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
 const UP = new THREE.Vector3(0, 1, 0);
 /** Sets a three.js colour from one of the sky's sRGB colours. */
@@ -54,10 +89,13 @@ function snapToShadowPixels(l: THREE.DirectionalLight) {
 // Render sizes to fall back through when frames take too long.
 const SIZES = [2, 1.5, 1];
 
-// How far the mouse can turn the view: sideways, up and down (radians).
+// How far the mouse's own look reaches: sideways, up and down (radians).
 const YAW = 0.85;
 const PITCH_UP = 0.3;
 const PITCH_DOWN = 0.12;
+// How far a drag can turn you: the whole way round, so you can watch the street you have already passed.
+const TURN = Math.PI;
+const TURN_SPEED = 0.0055; // radians a pixel dragged
 
 const toonCache = new Map<string, THREE.MeshToonMaterial>();
 function toon(color: string) {
@@ -99,6 +137,13 @@ function Boats({ body }: { body?: Made }) {
       { ...aboard(kayak(6, '#d9534a')), x: 104, z: MIDSTREAM + 3.2, speed: -0.8 },
     ];
   }, []);
+  // The ones on the move can be heard: the tour boats' engines (the first two movers) and the kayaks' paddles.
+  useEffect(() => {
+    stage.movers = boats.filter((b) => b.speed !== 0).map((b, i) => Object.assign(b, { sound: i < 2 ? ('engine' as const) : ('paddle' as const) }));
+    return () => {
+      stage.movers = [];
+    };
+  }, [boats]);
   useFrame(({ clock }, dt) => {
     group.current?.children.forEach((c, i) => {
       const b = boats[i];
@@ -127,6 +172,12 @@ const BOW_AHEAD = 4.9;
 const BOW_BELOW = 1.42;
 // Eye height in the boat, above the street.
 const EYE = 2.5;
+// The arrival shot: from just off the Korenlei quay, square on to the middle of the Graslei; and how long the swing
+// from there into the opening shot takes, and how high it climbs on the way.
+const ARRIVE_X = rowLength(GRASLEI) / 2;
+const ARRIVE_Z = 28;
+const ARRIVE_MS = 2800;
+const ARRIVE_RISE = 9;
 
 /**
  * Your own boat. It is always there, on the water, where the ride has got to: the opening shot comes down into it,
@@ -232,7 +283,7 @@ function Posters({ street, locale, state, onOpen }: { street: World['street']; l
 
 /* ---------------- Camera, light, and the ink pipeline ---------------- */
 
-function Scene({ town, state, locale, onOpen, onSlow }: { town: World; state: RefObject<StreetState>; locale: Locale; onOpen: (id: string) => void; onSlow: (dpr: number) => void }) {
+function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; state: RefObject<StreetState>; locale: Locale; onOpen: (id: string) => void; onSlow: (dpr: number) => void; onReady: () => void }) {
   const { street, towers, background } = town;
   const { camera, size, gl, scene } = useThree();
   // the people's body and clothes, made in Blender (public/people/person.glb); they appear once it is in
@@ -248,6 +299,8 @@ function Scene({ town, state, locale, onOpen, onSlow }: { town: World; state: Re
     load.current = { ...load.current, frames: 0, time: 0, from: performance.now() + 3000 };
   }, [body]);
   const frame = useRef(0);
+  // The first frame also compiles every shader and so takes long; from the second one the street is really there.
+  const drawn = useRef(0);
   const sun = useRef<THREE.DirectionalLight>(null);
   const hemi = useRef<THREE.HemisphereLight>(null);
   const focus = useRef(0);
@@ -264,6 +317,12 @@ function Scene({ town, state, locale, onOpen, onSlow }: { town: World; state: Re
       wpos: new THREE.Vector3(),
       wlook: new THREE.Vector3(),
       wdir: new THREE.Vector3(),
+      apos: new THREE.Vector3(),
+      opos: new THREE.Vector3(),
+      olook: new THREE.Vector3(),
+      cpos: new THREE.Vector3(),
+      clook: new THREE.Vector3(),
+      adir: new THREE.Vector3(),
       buf: new THREE.Vector2(),
     }),
     [],
@@ -279,12 +338,56 @@ function Scene({ town, state, locale, onOpen, onSlow }: { town: World; state: Re
     [],
   );
   const ink = useMemo(inkPass, []);
+  const boards = useMemo(() => ({ title: skyBoard(), thanks: skyBoard() }), []);
+  const tall = size.width < size.height;
+  // The screen in device pixels, in steps of 256: the boards are repainted when the window really changes size,
+  // not on every pixel of a drag.
+  const px = Math.round((size.width * gl.getPixelRatio()) / 256) * 256;
+  useEffect(() => {
+    let alive = true;
+    const font = getComputedStyle(document.body).fontFamily;
+    const t = streetCopy;
+    document.fonts.ready.then(() => {
+      if (!alive) return;
+      const S = 300;
+      const name: Line[] = (tall ? person.name.split(' ') : [person.name]).map((text, i) => ({ text, size: S, weight: 600, tracking: -0.055, lead: 0.86, gap: i ? 0 : S * 0.06 }));
+      const title: Line[] = [
+        { text: t.role[locale], size: S * (tall ? 0.21 : 0.17), weight: 400 },
+        ...name,
+        { text: `${t.scroll[locale]} ↓`, size: S * (tall ? 0.15 : 0.12), weight: 400, gap: S * 0.3, pill: CREAM, color: INK },
+      ];
+      const thanks: Line[] = [
+        ...(tall ? split2(t.endTitle[locale]) : [t.endTitle[locale]]).map((text) => ({ text, size: S, weight: 600, tracking: -0.045, lead: 0.95 })),
+        { text: t.endText[locale], size: S * (tall ? 0.42 : 0.36), weight: 500, gap: S * 0.16 },
+      ];
+      const aniso = gl.capabilities.getMaxAnisotropy();
+      // Paint each board at twice the width it covers on the screen, so the letters stay sharp when the shot
+      // frames them and there is something left to shrink when the camera moves on. The ink line round the
+      // letters is painted in at the same two pixels the ink pass used to draw it (skyBoard.ts).
+      const plan = (at: Framing) => {
+        const screen = px * at.w;
+        const fit = Math.min(screen * 2, 4096, gl.capabilities.maxTextureSize);
+        return { fit, edge: { color: INK, width: (2 * fit) / screen } };
+      };
+      const a = plan(TITLE[tall ? 'tall' : 'wide']);
+      const z = plan(THANKS[tall ? 'tall' : 'wide']);
+      paintBoard(boards.title, title, INK, font, aniso, a.fit, a.edge);
+      paintBoard(boards.thanks, thanks, CREAM, font, aniso, z.fit, z.edge);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [boards, locale, tall, gl, px]);
   const normals = useMemo(() => new THREE.MeshNormalMaterial(), []);
   const targets = useMemo(() => {
     // 8 bits a channel: the colour is stored sRGB-encoded, so the darks keep as many steps as on screen and nothing
     // bands, and the normals only feed the ink lines. Half the memory and bandwidth of half-floats.
     const color = new THREE.WebGLRenderTarget(1, 1, { samples: coarse ? 2 : 4, colorSpace: THREE.SRGBColorSpace });
     const normal = new THREE.WebGLRenderTarget(1, 1);
+    // Read pixel for pixel. This buffer is not a picture but a set of readings, and a blend of two of them is a
+    // reading of nothing: half a normal, or the tag of a board that is not there (skyBoard.ts).
+    normal.texture.minFilter = THREE.NearestFilter;
+    normal.texture.magFilter = THREE.NearestFilter;
     normal.depthTexture = new THREE.DepthTexture(1, 1);
     return { color, normal };
   }, []);
@@ -294,33 +397,43 @@ function Scene({ town, state, locale, onOpen, onSlow }: { town: World; state: Re
     gl.shadowMap.autoUpdate = false;
   }, [scene, gl]);
 
-  // Look around by moving the mouse: the pointer's place on screen sets where you look, within a fixed range.
-  // A finger has no hover, so on touch (and with reduced motion) you drag sideways instead.
-  const look = useRef({ yaw: 0, pitch: 0, ty: 0, tp: 0, drag: null as null | { x: number; y: number } });
+  // Two ways of looking, added together. `ty` is the gentle look the mouse's place on screen gives you, within
+  // YAW either side of straight ahead. `turn` is which way you are facing, and a drag — with a finger or with
+  // the mouse held down — swings it the whole way round, so you can look back down the river behind the boat.
+  const look = useRef({ yaw: 0, pitch: 0, ty: 0, tp: 0, turn: 0, nx: 0, drag: null as null | { x: number; y: number } });
   useEffect(() => {
     const el = gl.domElement;
     el.style.touchAction = 'pan-y'; // vertical swipes still scroll the page
+    const clamp = (a: number) => Math.max(-TURN, Math.min(TURN, a));
     const follows = (e: PointerEvent) => e.pointerType === 'mouse' && !state.current.reduced;
     const down = (e: PointerEvent) => {
-      if (state.current.focus || follows(e)) return;
+      if (state.current.focus) return;
       look.current.drag = { x: e.clientX, y: e.clientY };
     };
     const move = (e: PointerEvent) => {
       const L = look.current;
-      if (follows(e)) {
-        if (state.current.focus) return;
-        const nx = (e.clientX / innerWidth) * 2 - 1;
-        const ny = (e.clientY / innerHeight) * 2 - 1;
-        L.ty = -nx * YAW;
-        L.tp = -ny * (ny < 0 ? PITCH_UP : PITCH_DOWN);
-        return;
+      if (state.current.focus) return;
+      if (L.drag) {
+        L.turn = clamp(L.turn + (e.clientX - L.drag.x) * TURN_SPEED);
+        L.drag = { x: e.clientX, y: e.clientY };
       }
-      if (!L.drag) return;
-      L.ty = Math.max(-1.3, Math.min(1.3, L.ty + (e.clientX - L.drag.x) * 0.0045));
-      L.drag = { x: e.clientX, y: e.clientY };
+      if (!follows(e)) return;
+      L.nx = (e.clientX / innerWidth) * 2 - 1;
+      const ny = (e.clientY / innerHeight) * 2 - 1;
+      L.tp = -ny * (ny < 0 ? PITCH_UP : PITCH_DOWN);
+      // While you are dragging, the mouse is turning you; letting it also steer the gentle look would have the
+      // two pulling against each other.
+      if (!L.drag) L.ty = -L.nx * YAW;
     };
     const up = () => {
-      look.current.drag = null;
+      const L = look.current;
+      if (!L.drag) return;
+      L.drag = null;
+      // Hand the view back to the mouse without it moving: where you ended up facing stays put, and the pointer
+      // picks up the gentle look again from wherever it is now.
+      const held = -L.nx * YAW;
+      L.turn = clamp(L.turn + L.ty - held);
+      L.ty = held;
     };
     el.addEventListener('pointerdown', down);
     addEventListener('pointermove', move, { passive: true });
@@ -358,7 +471,7 @@ function Scene({ town, state, locale, onOpen, onSlow }: { town: World; state: Re
     // Facing down the river, turned towards wherever the pointer is.
     const L = look.current;
     const k = 1 - Math.exp(-dt * 4.5);
-    L.yaw += (L.ty - L.yaw) * k;
+    L.yaw += (L.turn + L.ty - L.yaw) * k;
     L.pitch += (L.tp - L.pitch) * k;
     v.dir.set(1, 0, 0).applyAxisAngle(UP, L.yaw);
     v.dir.y = Math.tan(L.pitch) - 0.02;
@@ -367,20 +480,34 @@ function Scene({ town, state, locale, onOpen, onSlow }: { town: World; state: Re
     boat.current = { x: v.pos.x, y: v.pos.y, z: v.pos.z };
 
     // --- The opening shot: high over the river, looking down it. The closing shot: up on the bridge.
+    opening(portrait, v.opos, v.olook);
     if (s.intro < 1) {
       const e = easeInOut(1 - s.intro);
-      v.wpos.set(-64, portrait ? 36 : 25, MIDSTREAM);
-      v.wlook.set(70, portrait ? 2 : 9, MIDSTREAM);
-      v.pos.lerp(v.wpos, e);
-      v.look.lerp(v.wlook, e);
+      v.pos.lerp(v.opos, e);
+      v.look.lerp(v.olook, e);
     }
+    // The name hangs where the opening shot frames it, the thanks where the closing shot does. They only move
+    // when the screen changes shape.
+    const key = `${size.width}x${size.height}`;
+    if (boards.title.placed !== key) {
+      boards.title.placed = key;
+      placeBoard(boards.title, v.opos, v.olook, fov, size.width / size.height, TITLE[portrait ? 'tall' : 'wide']);
+    }
+    if (boards.thanks.placed !== key) {
+      boards.thanks.placed = key;
+      closing(portrait, RIDE.to, v.cpos, v.clook);
+      placeBoard(boards.thanks, v.cpos, v.clook, fov, size.width / size.height, THANKS[portrait ? 'tall' : 'wide']);
+    }
+    // The thanks are only put out once the ride is over, high above the bridge where nobody in the boat sees them,
+    // and are let down as you rise out of the boat.
+    boards.thanks.on = s.outro > 0;
+    boards.thanks.mesh.position.y = boards.thanks.y + LIFT * (1 - easeOut(clamp01(s.outro / 0.8)));
     if (s.outro > 0) {
       // The mirror of the opening: straight up out of the boat, then back, until the whole river lies below
       // with the boat moored at the bridge and the towers on the skyline.
       const e = easeInOut(s.outro);
       const rise = easeInOut(Math.min(1, s.outro * 1.25));
-      v.wpos.set(s.x - 52, portrait ? 30 : 19, MIDSTREAM + (portrait ? 6 : 0));
-      v.wlook.set(BRIDGE + 90, portrait ? 0 : 7, MIDSTREAM - (portrait ? 14 : 0));
+      closing(portrait, s.x, v.wpos, v.wlook);
       v.wdir.copy(v.wlook).sub(v.wpos).normalize();
       const y = v.pos.y + (v.wpos.y - v.pos.y) * rise;
       v.pos.lerp(v.wpos, e);
@@ -406,11 +533,47 @@ function Scene({ town, state, locale, onOpen, onSlow }: { town: World; state: Re
       v.look.lerp(v.flook, e);
     } else if (focus.current < 0.001) focusId.current = null;
 
+    // --- Arriving from the loader: start where its houses were drawn, then swing round into the shot above.
+    let fovNow = fov;
+    let lift = 0;
+    const a = s.arrival;
+    if (a) {
+      const t = (performance.now() - a.at) / ARRIVE_MS;
+      // The name waits high up while the camera swings round (it would fly straight through it), and is let down
+      // into the picture in the second half, as the opening shot settles.
+      lift = LIFT * (1 - easeOut(clamp01((t - 0.5) / 0.5)));
+      if (t >= 1) s.arrival = null;
+      else {
+        const e = t <= 0 ? 0 : easeInOut(t);
+        // Facades square on to the camera keep their shape, so only the size has to match: at ARRIVE_Z metres away,
+        // the field of view that makes one metre a.m pixels; and eyes as high above the street as the loader's houses
+        // stand below the middle of the screen.
+        const half = size.height / 2;
+        const aFov = (2 * Math.atan(half / (a.m * ARRIVE_Z)) * 180) / Math.PI;
+        v.apos.set(ARRIVE_X, (a.base - half) / a.m, ARRIVE_Z);
+        v.adir.set(0, 0, -1);
+        v.dir.copy(v.look).sub(v.pos).normalize();
+        v.dir.lerpVectors(v.adir, v.dir, e).normalize();
+        v.pos.lerpVectors(v.apos, v.pos, e);
+        v.pos.y += Math.sin(Math.PI * e) * ARRIVE_RISE;
+        v.look.copy(v.pos).add(v.dir);
+        fovNow = aFov + (fov - aFov) * e;
+      }
+    }
+
+    boards.title.mesh.position.y = boards.title.y + lift;
+
     const cam = camera as THREE.PerspectiveCamera;
     camera.position.copy(v.pos);
     camera.lookAt(v.look);
-    if (cam.fov !== fov) {
-      cam.fov = fov;
+    stage.cam.x = v.pos.x;
+    stage.cam.y = v.pos.y;
+    stage.cam.z = v.pos.z;
+    stage.intro = s.intro;
+    stage.outro = s.outro;
+    stage.night = sky.night;
+    if (cam.fov !== fovNow) {
+      cam.fov = fovNow;
       cam.updateProjectionMatrix();
     }
 
@@ -441,6 +604,7 @@ function Scene({ town, state, locale, onOpen, onSlow }: { town: World; state: Re
         targets.color.dispose();
       }
     }
+    for (const b of Object.values(boards)) b.mesh.visible = b.on;
     gl.setClearColor(0x000000, 0);
     // Above 90 frames a second the shadows are redrawn every other frame; nobody sees a shadow a frame behind.
     gl.shadowMap.needsUpdate = dt > 1 / 90 || frame.current++ % 2 === 0;
@@ -449,6 +613,7 @@ function Scene({ town, state, locale, onOpen, onSlow }: { town: World; state: Re
     gl.render(scene, camera);
     // The mirror image is only colour under the water; it must not get outlines of its own.
     if (mirror.current) mirror.current.visible = false;
+    for (const b of Object.values(boards)) b.mesh.visible = false;
     scene.overrideMaterial = normals;
     gl.setRenderTarget(targets.normal);
     gl.clear();
@@ -460,6 +625,17 @@ function Scene({ town, state, locale, onOpen, onSlow }: { town: World; state: Re
     scene.matrixWorldAutoUpdate = true;
     scene.overrideMaterial = null;
     if (mirror.current) mirror.current.visible = true;
+    // the words get lines round their letters, not round the boards they are painted on (see skyBoard.ts)
+    const auto = gl.autoClear;
+    gl.autoClear = false;
+    for (const b of Object.values(boards)) {
+      b.mesh.visible = b.on;
+      if (!b.on || !b.paint.visible) continue;
+      b.mesh.material = b.cutout;
+      gl.render(b.mesh, camera);
+      b.mesh.material = b.paint;
+    }
+    gl.autoClear = auto;
     gl.setRenderTarget(null);
     const u = ink.mat.uniforms;
     u.tColor.value = targets.color.texture;
@@ -472,6 +648,7 @@ function Scene({ town, state, locale, onOpen, onSlow }: { town: World; state: Re
     srgb(u.uHaze.value, sky.horizon);
     gl.clear();
     gl.render(ink.scene, ink.camera);
+    if (drawn.current++ === 1) onReady();
   }, 1);
 
   return (
@@ -507,12 +684,14 @@ function Scene({ town, state, locale, onOpen, onSlow }: { town: World; state: Re
       <Boats body={body} />
       <OwnBoat pose={boat} body={body} />
       <Clouds />
+      <primitive object={boards.title.mesh} />
+      <primitive object={boards.thanks.mesh} />
       <Posters street={street} locale={locale} state={state} onOpen={onOpen} />
     </>
   );
 }
 
-export default function StreetScene(props: { state: RefObject<StreetState>; locale: Locale; active: boolean; onOpen: (id: string) => void }) {
+export default function StreetScene(props: { state: RefObject<StreetState>; locale: Locale; active: boolean; onOpen: (id: string) => void; onReady: () => void }) {
   const { active, ...rest } = props;
   const { state } = props;
   // The render size lives here, not only inside three.js: the canvas puts back whatever size it is given each

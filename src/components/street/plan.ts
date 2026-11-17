@@ -36,13 +36,13 @@ export const GRASLEI: HouseSpec[] = [
   { id: 'realo', w: 8, floors: 3, gable: 'stepped', wall: 'sand', steps: 6 },
   { w: 4.4, floors: 2, gable: 'pointed', wall: 'white', roof: 'roofWarm', shutters: 'shutterBlue' },
   { w: 7, floors: 3, gable: 'stepped', wall: 'brick', steps: 5 },
-  { id: 'beatcut', w: 7.4, floors: 3, gable: 'pointed', wall: 'cream', shutters: 'shutterBlue' },
+  { w: 7.4, floors: 3, gable: 'pointed', wall: 'cream', shutters: 'shutterBlue' },
   { w: 5, floors: 2, gable: 'cornice', wall: 'stone' },
   { w: 6, floors: 3, gable: 'pointed', wall: 'terracotta' },
   { id: 'flowsha', w: 7.6, floors: 3, gable: 'pointed', wall: 'sage', roof: 'roofWarm' },
   { w: 5.4, floors: 3, gable: 'stepped', wall: 'ochre', steps: 4 },
   { w: 6, floors: 2, gable: 'cornice', wall: 'slate' },
-  { id: 'small', w: 7.2, floors: 3, gable: 'cornice', wall: 'cream', shutters: 'shutterGreen', awning: 'awning' },
+  { w: 7.2, floors: 3, gable: 'cornice', wall: 'cream', shutters: 'shutterGreen', awning: 'awning' },
   { w: 6, floors: 3, gable: 'stepped', wall: 'brick', steps: 5 },
   { w: 5, floors: 2, gable: 'pointed', wall: 'white', roof: 'roof' },
 ];
@@ -60,10 +60,10 @@ export const KORENLEI: HouseSpec[] = [
   { id: 'se-parti', w: 8.6, floors: 4, gable: 'stepped', wall: 'ochre', steps: 6, awning: 'terracotta' },
   { w: 4.6, floors: 2, gable: 'pointed', wall: 'white', roof: 'roofWarm' },
   { w: 6, floors: 3, gable: 'stepped', wall: 'sand', steps: 5 },
-  { id: 'dream-team', w: 8.4, floors: 3, gable: 'stepped', wall: 'brick', steps: 5 },
+  { id: 'elliot', w: 8.4, floors: 3, gable: 'stepped', wall: 'brick', steps: 5 },
   { w: 5.4, floors: 2, gable: 'cornice', wall: 'sage' },
   { w: 5, floors: 3, gable: 'pointed', wall: 'terracotta', shutters: 'shutterBlue' },
-  { id: 'contact', w: 9.4, floors: 4, gable: 'stepped', wall: 'terracotta', steps: 6 },
+  { w: 9.4, floors: 4, gable: 'stepped', wall: 'terracotta', steps: 6 },
   { w: 6, floors: 2, gable: 'pointed', wall: 'cream' },
 ];
 
@@ -94,3 +94,6 @@ export const STOPS: { id: string; x: number; side: 1 | -1 }[] = (() => {
   }
   return out.sort((a, b) => a.x - b.x);
 })();
+
+/** Where the boat ride starts and ends along the river: a little before the first poster, a little past the last. */
+export const RIDE = { from: STOPS[0].x - 20, to: STOPS.at(-1)!.x + 6 };

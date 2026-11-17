@@ -305,6 +305,9 @@ export function inkPass() {
       float hash(vec2 p) { return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
       float lin(float d) { float z = d * 2.0 - 1.0; return 2.0 * uNear * uFar / (uFar + uNear - z * (uFar - uNear)); }
       vec3 nrm(vec2 uv) { return texture2D(tNormal, uv).xyz * 2.0 - 1.0; }
+      // The words hanging in the sky tag themselves with a half in the alpha (skyBoard.ts). They carry a painted
+      // line of their own, so this pass keeps its hands off them.
+      float board(vec2 uv) { return 1.0 - step(0.1, abs(texture2D(tNormal, uv).a - 0.5)); }
       void main() {
         // The lines sit exactly on the geometry. Any wobble tied to the screen makes them slide when the view turns.
         vec2 p = vUv * uRes;
@@ -324,7 +327,9 @@ export function inkPass() {
         // The hills on the horizon get no line at all. A faint line that thin breaks up into dashes.
         // Measured from the nearest of the samples, so both sides of an outline fade alike.
         float dNear = min(d0, min(min(d1, d2), min(d3, d4)));
-        float edge = max(edgeD, edgeN) * (1.0 - smoothstep(200.0, 400.0, dNear));
+        // ...and off the pixel beside them, which is as far as the comparisons above can reach.
+        float onBoard = max(max(board(uv), max(board(uv + dx), board(uv - dx))), max(board(uv + dy), board(uv - dy)));
+        float edge = max(edgeD, edgeN) * (1.0 - smoothstep(200.0, 400.0, dNear)) * (1.0 - onBoard);
 
         vec4 col = texture2D(tColor, vUv);
         // distant things fade into the sky a little

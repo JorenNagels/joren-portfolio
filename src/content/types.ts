@@ -30,6 +30,8 @@ export type Project = {
   stack: string[];
   links: { label: L; href: string }[];
   image?: string;
+  /** The same site shot at the billboard's shape (880×1000), so it lays itself out for it instead of being cropped. */
+  poster?: string;
   /** Include in the projects block of the CV, with this one-liner. */
   cv?: L;
 };
