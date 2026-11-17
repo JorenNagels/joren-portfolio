@@ -5,16 +5,15 @@ import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { experience, languages, person, skills, summary } from '@/content/profile';
-import { experiments, projects } from '@/content/projects';
+import { projects } from '@/content/projects';
 import type { Locale } from '@/content/types';
 import { period, ui } from '@/content/ui';
 import { onFrame } from '@/lib/ticker';
 import { BeatArt } from '../BeatArt';
-import { GhentClock } from '../GhentClock';
 import { streetCopy as t } from './copy';
 import { kindOf, labelOf } from './labels';
 import { Loader } from './Loader';
-import { STOPS } from './plan';
+import { RIDE, STOPS } from './plan';
 import { skyAt } from './sky';
 import type { StreetState } from './StreetScene';
 
@@ -56,8 +55,8 @@ export function Street({ locale: l }: { locale: Locale }) {
   // Walking slows down in front of each poster.
   const table = useRef<{ x: number[]; c: number[] } | null>(null);
   if (!table.current) {
-    const x0 = stops[0].x - 12;
-    const x1 = stops.at(-1)!.x + 14;
+    const x0 = RIDE.from;
+    const x1 = RIDE.to;
     const xs: number[] = [];
     const cs: number[] = [0];
     for (let x = x0; x <= x1 + 1e-6; x += 0.1) {
@@ -132,7 +131,6 @@ export function Street({ locale: l }: { locale: Locale }) {
         x.style.visibility = o < 0.01 ? 'hidden' : 'visible';
       };
       const focus = s.focus ? 0 : 1;
-      show('intro', 1 - clamp01(s.intro / 0.6));
       show('nav', clamp01((s.intro - 0.7) / 0.3) * (1 - clamp01(s.outro / 0.4)) * focus);
       show('hint', clamp01((s.intro - 0.8) / 0.2) * (1 - clamp01((s.x - stops[0].x + 2) / 6)) * focus);
       show('end', clamp01((s.outro - 0.55) / 0.4));
@@ -188,12 +186,12 @@ export function Street({ locale: l }: { locale: Locale }) {
         </div>
         <Loader l={l} built={built} ready={ready} onMeasure={onMeasure} onOut={onShown} />
 
-        {/* Opening: the name in the sky over the street */}
-        <div ref={(x) => { els.current.intro = x; }} className="pointer-events-none absolute inset-x-0 top-0 px-4 pt-24 sm:px-8 sm:pt-28">
-          <p className="text-base sm:text-lg">{t.role[l]}</p>
-          <p className="mt-1 text-[clamp(3.4rem,13vw,13rem)] font-semibold leading-[0.85] tracking-[-0.055em]" aria-hidden>{person.name}</p>
-          <p className="scroll-cue mt-6 text-sm sm:text-base">{t.scroll[l]} <span aria-hidden>↓</span></p>
-        </div>
+        {/* While the street loads: the name over the pop-up houses. Once the street is in, the name hangs in its sky
+            (skyBoard.ts), with the scroll hint under it, and the camera swings round to it. */}
+        <p className={`pointer-events-none absolute inset-x-0 top-[16%] px-4 text-center transition-opacity duration-700 ${shown ? 'opacity-0' : ''}`} aria-hidden>
+          <span className="block text-base sm:text-lg">{t.role[l]}</span>
+          <span className="mt-1 block text-[clamp(3.4rem,11vw,12rem)] font-semibold leading-[0.85] tracking-[-0.055em]">{person.name}</span>
+        </p>
 
         <div ref={(x) => { els.current.hint = x; }} className="pointer-events-none invisible absolute left-1/2 top-20 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-3xl text-center bg-[#25262f] px-4 py-2 text-sm text-[#f4f0e4]" style={{ opacity: 0 }}>
           <span className="[@media(pointer:coarse)]:hidden">{t.hint[l]}</span>
@@ -220,11 +218,11 @@ export function Street({ locale: l }: { locale: Locale }) {
           </div>
         </nav>
 
-        {/* The end: socials */}
-        <div ref={(x) => { els.current.end = x; }} className="invisible absolute inset-x-0 top-0 px-4 pt-28 text-center [text-shadow:0_2px_28px_rgba(11,13,18,0.7)] sm:pt-32" style={{ opacity: 0 }}>
-          <h2 className="text-[clamp(2.4rem,6vw,5.5rem)] font-semibold leading-[0.95] tracking-[-0.045em]">{t.endTitle[l]}</h2>
-          <p className="mt-4 text-lg">{t.endText[l]}</p>
-          <ul className="mt-8 flex flex-wrap justify-center gap-3">
+        {/* The end: the thanks hang in the night sky (skyBoard.ts); the links to follow it stay on the page */}
+        <div ref={(x) => { els.current.end = x; }} className="invisible absolute inset-x-0 top-[37%] px-4 text-center sm:top-[33%]" style={{ opacity: 0 }}>
+          <h2 className="sr-only">{t.endTitle[l]}</h2>
+          <p className="sr-only">{t.endText[l]}</p>
+          <ul className="flex flex-wrap justify-center gap-3">
             <Social href={`mailto:${person.email}`}>{person.email}</Social>
             <Social href={person.github}>GitHub</Social>
             {person.linkedin && <Social href={person.linkedin}>LinkedIn</Social>}
@@ -267,8 +265,6 @@ function Panel({ id, l, onClose }: { id: string | null; l: Locale; onClose: () =
         {kind === 'about' && <AboutPanel l={l} />}
         {kind === 'work' && <WorkPanel id={shown!} l={l} />}
         {kind === 'project' && <ProjectPanel id={shown!} l={l} />}
-        {kind === 'small' && <SmallPanel l={l} />}
-        {kind === 'contact' && <ContactPanel l={l} />}
       </aside>
     </>
   );
@@ -336,37 +332,6 @@ function ProjectPanel({ id, l }: { id: string; l: Locale }) {
           <a key={x.href} href={x.href} className="underline">{x.label[l]} ↗</a>
         ))}
       </p>
-    </article>
-  );
-}
-
-function SmallPanel({ l }: { l: Locale }) {
-  return (
-    <article>
-      <h2 className="text-5xl font-semibold tracking-[-0.04em]">{t.small[l]}</h2>
-      <ul className="mt-8">
-        {experiments.map((e) => (
-          <li key={e.name} className="border-t border-black/10 py-4">
-            <p className="flex justify-between gap-4"><span className="text-xl font-semibold">{e.name}</span><span className="text-sm text-[#76736a]">{e.year}</span></p>
-            <p className="mt-1 leading-relaxed">{e.text[l]}</p>
-          </li>
-        ))}
-      </ul>
-    </article>
-  );
-}
-
-function ContactPanel({ l }: { l: Locale }) {
-  return (
-    <article>
-      <h2 className="text-3xl font-semibold tracking-[-0.03em]">{t.contactTitle[l]}</h2>
-      <a href={`mailto:${person.email}`} className="mt-4 block break-all text-4xl font-semibold tracking-[-0.04em] underline decoration-black/20 hover:decoration-black">{person.email}</a>
-      <ul className="mt-8 flex flex-wrap gap-3">
-        <Social href={person.github}>GitHub</Social>
-        {person.linkedin && <Social href={person.linkedin}>LinkedIn</Social>}
-        <Social href={`/${l}/cv/`} internal>CV</Social>
-      </ul>
-      <p className="mt-8 text-sm text-[#76736a]">{ui.contact.clock[l]} <GhentClock /></p>
     </article>
   );
 }

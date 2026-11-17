@@ -3,16 +3,19 @@
 import { advance, Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
 import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import * as THREE from 'three';
+import { person } from '@/content/profile';
 import type { Locale } from '@/content/types';
 import { onFrame } from '@/lib/ticker';
 import { loadBody } from './actor';
 import type { Made } from './character';
 import { Crew } from './Crew';
 import { cabinBoat, kayak, ownBoat, type Rider, rowBoat, sloep, tourBoat } from './folk';
-import { GRASLEI, rowLength } from './plan';
+import { GRASLEI, RIDE, rowLength } from './plan';
 import { BRIDGE, buildBackground, buildStreet, buildTowers, FAR, MAT, MIDSTREAM, palette, QUAY, RIVER, WATER } from './houses';
 import { People, Sitters } from './People';
 import { posterTexture } from './posters';
+import { streetCopy } from './copy';
+import { type Framing, type Line, paintBoard, placeBoard, skyBoard, split2 } from './skyBoard';
 import { type RGB, skyAt } from './sky';
 import { inkPass, reflectionMaterial, toonMaterial, uniforms, waterMaterial } from './toon';
 
@@ -33,6 +36,30 @@ export type StreetState = {
 };
 
 export const street = buildStreet();
+/** The opening shot: high over the river, looking down it. */
+function opening(portrait: boolean, pos: THREE.Vector3, look: THREE.Vector3) {
+  pos.set(-64, portrait ? 36 : 25, MIDSTREAM);
+  look.set(70, portrait ? 2 : 9, MIDSTREAM);
+}
+
+/** The closing shot, for the boat at x: up and back from it, the whole river below and the bridge ahead. */
+function closing(portrait: boolean, x: number, pos: THREE.Vector3, look: THREE.Vector3) {
+  pos.set(x - 52, portrait ? 30 : 19, MIDSTREAM + (portrait ? 6 : 0));
+  look.set(BRIDGE + 90, portrait ? 0 : 7, MIDSTREAM - (portrait ? 14 : 0));
+}
+
+// Where the opening shot frames the name (with the scroll hint under it), and the closing shot the thanks. A board
+// is as big in the street as it is far away: on a tall screen the name hangs closer, or its lower edge would dip
+// below the roofs and into the houses on both quays.
+const TITLE: Record<'wide' | 'tall', Framing> = { wide: { y: 0.36, w: 0.7, distance: 85 }, tall: { y: 0.32, w: 0.78, distance: 50 } };
+const THANKS: Record<'wide' | 'tall', Framing> = { wide: { y: 0.58, w: 0.56, distance: 80 }, tall: { y: 0.58, w: 0.84, distance: 80 } };
+// How high above its place a board waits before it is let down into the picture, in metres.
+const LIFT = 80;
+const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
+const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+const INK = '#25262f';
+const CREAM = '#f4f0e4';
+
 const easeInOut = (x: number) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
 const UP = new THREE.Vector3(0, 1, 0);
 /** Sets a three.js colour from one of the sky's sRGB colours. */
@@ -277,6 +304,10 @@ function Scene({ state, locale, onOpen, onSlow, onReady }: { state: RefObject<St
       wlook: new THREE.Vector3(),
       wdir: new THREE.Vector3(),
       apos: new THREE.Vector3(),
+      opos: new THREE.Vector3(),
+      olook: new THREE.Vector3(),
+      cpos: new THREE.Vector3(),
+      clook: new THREE.Vector3(),
       adir: new THREE.Vector3(),
       buf: new THREE.Vector2(),
     }),
@@ -295,6 +326,33 @@ function Scene({ state, locale, onOpen, onSlow, onReady }: { state: RefObject<St
   const towers = useMemo(buildTowers, []);
   const background = useMemo(buildBackground, []);
   const ink = useMemo(inkPass, []);
+  const boards = useMemo(() => ({ title: skyBoard(), thanks: skyBoard() }), []);
+  const tall = size.width < size.height;
+  useEffect(() => {
+    let alive = true;
+    const font = getComputedStyle(document.body).fontFamily;
+    const t = streetCopy;
+    document.fonts.ready.then(() => {
+      if (!alive) return;
+      const S = 300;
+      const name: Line[] = (tall ? person.name.split(' ') : [person.name]).map((text, i) => ({ text, size: S, weight: 600, tracking: -0.055, lead: 0.86, gap: i ? 0 : S * 0.06 }));
+      const title: Line[] = [
+        { text: t.role[locale], size: S * (tall ? 0.21 : 0.17), weight: 400 },
+        ...name,
+        { text: `${t.scroll[locale]} ↓`, size: S * (tall ? 0.15 : 0.12), weight: 400, gap: S * 0.3, pill: CREAM, color: INK },
+      ];
+      const thanks: Line[] = [
+        ...(tall ? split2(t.endTitle[locale]) : [t.endTitle[locale]]).map((text) => ({ text, size: S, weight: 600, tracking: -0.045, lead: 0.95 })),
+        { text: t.endText[locale], size: S * (tall ? 0.42 : 0.36), weight: 500, gap: S * 0.16 },
+      ];
+      const aniso = gl.capabilities.getMaxAnisotropy();
+      paintBoard(boards.title, title, INK, font, aniso);
+      paintBoard(boards.thanks, thanks, CREAM, font, aniso);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [boards, locale, tall, gl]);
   const normals = useMemo(() => new THREE.MeshNormalMaterial(), []);
   const targets = useMemo(() => {
     // 8 bits a channel: the colour is stored sRGB-encoded, so the darks keep as many steps as on screen and nothing
@@ -383,20 +441,34 @@ function Scene({ state, locale, onOpen, onSlow, onReady }: { state: RefObject<St
     boat.current = { x: v.pos.x, y: v.pos.y, z: v.pos.z };
 
     // --- The opening shot: high over the river, looking down it. The closing shot: up on the bridge.
+    opening(portrait, v.opos, v.olook);
     if (s.intro < 1) {
       const e = easeInOut(1 - s.intro);
-      v.wpos.set(-64, portrait ? 36 : 25, MIDSTREAM);
-      v.wlook.set(70, portrait ? 2 : 9, MIDSTREAM);
-      v.pos.lerp(v.wpos, e);
-      v.look.lerp(v.wlook, e);
+      v.pos.lerp(v.opos, e);
+      v.look.lerp(v.olook, e);
     }
+    // The name hangs where the opening shot frames it, the thanks where the closing shot does. They only move
+    // when the screen changes shape.
+    const key = `${size.width}x${size.height}`;
+    if (boards.title.placed !== key) {
+      boards.title.placed = key;
+      placeBoard(boards.title, v.opos, v.olook, fov, size.width / size.height, TITLE[portrait ? 'tall' : 'wide']);
+    }
+    if (boards.thanks.placed !== key) {
+      boards.thanks.placed = key;
+      closing(portrait, RIDE.to, v.cpos, v.clook);
+      placeBoard(boards.thanks, v.cpos, v.clook, fov, size.width / size.height, THANKS[portrait ? 'tall' : 'wide']);
+    }
+    // The thanks are only put out once the ride is over, high above the bridge where nobody in the boat sees them,
+    // and are let down as you rise out of the boat.
+    boards.thanks.on = s.outro > 0;
+    boards.thanks.mesh.position.y = boards.thanks.y + LIFT * (1 - easeOut(clamp01(s.outro / 0.8)));
     if (s.outro > 0) {
       // The mirror of the opening: straight up out of the boat, then back, until the whole river lies below
       // with the boat moored at the bridge and the towers on the skyline.
       const e = easeInOut(s.outro);
       const rise = easeInOut(Math.min(1, s.outro * 1.25));
-      v.wpos.set(s.x - 52, portrait ? 30 : 19, MIDSTREAM + (portrait ? 6 : 0));
-      v.wlook.set(BRIDGE + 90, portrait ? 0 : 7, MIDSTREAM - (portrait ? 14 : 0));
+      closing(portrait, s.x, v.wpos, v.wlook);
       v.wdir.copy(v.wlook).sub(v.wpos).normalize();
       const y = v.pos.y + (v.wpos.y - v.pos.y) * rise;
       v.pos.lerp(v.wpos, e);
@@ -424,9 +496,13 @@ function Scene({ state, locale, onOpen, onSlow, onReady }: { state: RefObject<St
 
     // --- Arriving from the loader: start where its houses were drawn, then swing round into the shot above.
     let fovNow = fov;
+    let lift = 0;
     const a = s.arrival;
     if (a) {
       const t = (performance.now() - a.at) / ARRIVE_MS;
+      // The name waits high up while the camera swings round (it would fly straight through it), and is let down
+      // into the picture in the second half, as the opening shot settles.
+      lift = LIFT * (1 - easeOut(clamp01((t - 0.5) / 0.5)));
       if (t >= 1) s.arrival = null;
       else {
         const e = t <= 0 ? 0 : easeInOut(t);
@@ -445,6 +521,8 @@ function Scene({ state, locale, onOpen, onSlow, onReady }: { state: RefObject<St
         fovNow = aFov + (fov - aFov) * e;
       }
     }
+
+    boards.title.mesh.position.y = boards.title.y + lift;
 
     const cam = camera as THREE.PerspectiveCamera;
     camera.position.copy(v.pos);
@@ -481,6 +559,7 @@ function Scene({ state, locale, onOpen, onSlow, onReady }: { state: RefObject<St
         targets.color.dispose();
       }
     }
+    for (const b of Object.values(boards)) b.mesh.visible = b.on;
     gl.setClearColor(0x000000, 0);
     // Above 90 frames a second the shadows are redrawn every other frame; nobody sees a shadow a frame behind.
     gl.shadowMap.needsUpdate = dt > 1 / 90 || frame.current++ % 2 === 0;
@@ -489,12 +568,24 @@ function Scene({ state, locale, onOpen, onSlow, onReady }: { state: RefObject<St
     gl.render(scene, camera);
     // The mirror image is only colour under the water; it must not get outlines of its own.
     if (mirror.current) mirror.current.visible = false;
+    for (const b of Object.values(boards)) b.mesh.visible = false;
     scene.overrideMaterial = normals;
     gl.setRenderTarget(targets.normal);
     gl.clear();
     gl.render(scene, camera);
     scene.overrideMaterial = null;
     if (mirror.current) mirror.current.visible = true;
+    // the words get lines round their letters, not round the boards they are painted on (see skyBoard.ts)
+    const auto = gl.autoClear;
+    gl.autoClear = false;
+    for (const b of Object.values(boards)) {
+      b.mesh.visible = b.on;
+      if (!b.on || !b.paint.visible) continue;
+      b.mesh.material = b.cutout;
+      gl.render(b.mesh, camera);
+      b.mesh.material = b.paint;
+    }
+    gl.autoClear = auto;
     gl.setRenderTarget(null);
     const u = ink.mat.uniforms;
     u.tColor.value = targets.color.texture;
@@ -543,6 +634,8 @@ function Scene({ state, locale, onOpen, onSlow, onReady }: { state: RefObject<St
       <Boats body={body} />
       <OwnBoat pose={boat} body={body} />
       <Clouds />
+      <primitive object={boards.title.mesh} />
+      <primitive object={boards.thanks.mesh} />
       <Posters locale={locale} state={state} onOpen={onOpen} />
     </>
   );

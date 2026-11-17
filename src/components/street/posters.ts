@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { experience, headline, person } from '@/content/profile';
-import { experiments, projects } from '@/content/projects';
+import { projects } from '@/content/projects';
 import type { Locale } from '@/content/types';
 import { period } from '@/content/ui';
 import { streetCopy as t } from './copy';
@@ -12,7 +12,6 @@ const H = 1000;
 const PAPER = '#f4f0e4';
 const INK = '#25262f';
 const RED = '#c45a3d';
-const TEAL = '#2f7d7a';
 
 function wrap(ctx: CanvasRenderingContext2D, text: string, x: number, y: number, max: number, lh: number, maxLines = 9) {
   let line = '';
@@ -57,6 +56,112 @@ function waveform(ctx: CanvasRenderingContext2D, x: number, y: number, w: number
   }
 }
 
+/*
+ * The employers' posters: their logo on their own blue, over a map like the ones I built for them. The logos are
+ * drawn in the poster's cream; width is how wide, and x/y nudge it so its letters, not its padding, line up with the
+ * text (the Immoweb PNG has a margin round it).
+ */
+type Brand = { bg: string; logo: string; width: number; x: number; y: number; pin: string; pinInk: string };
+const BRANDS: Record<string, Brand> = {
+  realo: { bg: '#008aff', logo: '/logos/realo.svg', width: 560, x: 0, y: 0, pin: '#77cb00', pinInk: INK },
+  immoweb: { bg: '#133dbd', logo: '/logos/immoweb.png', width: 760, x: -32, y: -36, pin: INK, pinInk: PAPER },
+};
+
+/** The same pseudo-random numbers every time, so a poster looks the same on every visit. */
+function seeded(seed: number) {
+  let s = seed % 2147483647 || 1;
+  return () => ((s = (s * 16807) % 2147483647) - 1) / 2147483646;
+}
+
+/** An image drawn in one flat colour, keeping its shape. */
+function tint(img: HTMLImageElement, w: number, h: number, color: string) {
+  const c = document.createElement('canvas');
+  c.width = Math.ceil(w);
+  c.height = Math.ceil(h);
+  const x = c.getContext('2d')!;
+  x.drawImage(img, 0, 0, w, h);
+  x.globalCompositeOperation = 'source-in';
+  x.fillStyle = color;
+  x.fillRect(0, 0, w, h);
+  return c;
+}
+
+/** A town seen from above in the brand's blue: blocks, a river and price pins, faded out under the text on the left. */
+function cityMap(ctx: CanvasRenderingContext2D, b: Brand, font: string, seed: number) {
+  const r = seeded(seed);
+  ctx.fillStyle = b.bg;
+  ctx.fillRect(0, 0, W, H);
+
+  ctx.save();
+  ctx.translate(W * 0.6, H * 0.5);
+  ctx.rotate(-0.2);
+  const xs: number[] = [];
+  const ys: number[] = [];
+  for (let x = -W; x < W; x += 80 + r() * 110) xs.push(x);
+  for (let y = -H; y < H; y += 70 + r() * 90) ys.push(y);
+  for (let i = 0; i < xs.length - 1; i++) {
+    for (let j = 0; j < ys.length - 1; j++) {
+      const k = r();
+      if (k < 0.08) continue; // a square
+      ctx.fillStyle = k < 0.16 ? 'rgba(255,255,255,0.16)' : 'rgba(255,255,255,0.075)'; // a park, or houses
+      ctx.beginPath();
+      ctx.roundRect(xs[i] + 8, ys[j] + 8, xs[i + 1] - xs[i] - 16, ys[j + 1] - ys[j] - 16, 8);
+      ctx.fill();
+    }
+  }
+  ctx.restore();
+
+  // the river, darker than the blocks it runs through
+  ctx.strokeStyle = 'rgba(0,0,0,0.16)';
+  ctx.lineWidth = 54;
+  ctx.lineCap = 'round';
+  ctx.beginPath();
+  ctx.moveTo(W * 0.42, H + 60);
+  ctx.bezierCurveTo(W * 0.62, H * 0.62, W * 0.7, H * 0.5, W + 60, H * 0.22);
+  ctx.stroke();
+
+  // the left side fades back to plain blue, so the logo and text sit on calm ground
+  const g = ctx.createLinearGradient(0, 0, W, 0);
+  g.addColorStop(0, b.bg);
+  g.addColorStop(0.36, b.bg);
+  g.addColorStop(0.62, `${b.bg}00`);
+  ctx.fillStyle = g;
+  ctx.fillRect(0, 0, W, H);
+
+  // price pins, as on a property search map; one stands out, as if you'd hovered it
+  const spots = [[0.63, 0.17], [0.86, 0.11], [0.75, 0.36], [0.93, 0.48], [0.63, 0.6], [0.83, 0.68], [0.71, 0.86], [0.93, 0.88]];
+  ctx.font = `600 34px ${font}`;
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  spots.forEach(([sx, sy], i) => {
+    const hot = i === 2;
+    const text = `€ ${Math.round(195 + r() * 420)}k`;
+    const w = ctx.measureText(text).width + 40;
+    const h = 58;
+    const x = sx * W;
+    const y = sy * H;
+    const pin = () => {
+      ctx.beginPath();
+      ctx.roundRect(x - w / 2, y - h / 2, w, h, h / 2);
+      ctx.moveTo(x - 12, y + h / 2 - 2);
+      ctx.lineTo(x, y + h / 2 + 14);
+      ctx.lineTo(x + 12, y + h / 2 - 2);
+      ctx.fill();
+    };
+    ctx.save();
+    ctx.translate(0, 5);
+    ctx.fillStyle = 'rgba(0,0,0,0.22)';
+    pin();
+    ctx.restore();
+    ctx.fillStyle = hot ? b.pin : PAPER;
+    pin();
+    ctx.fillStyle = hot ? b.pinInk : b.bg;
+    ctx.fillText(text, x, y + 2);
+  });
+  ctx.textAlign = 'start';
+  ctx.textBaseline = 'alphabetic';
+}
+
 /** Fit a single line by shrinking the font. */
 function fit(ctx: CanvasRenderingContext2D, text: string, max: number, weight: number, size: number, font: string) {
   ctx.font = `${weight} ${size}px ${font}`;
@@ -93,17 +198,20 @@ export async function posterTexture(id: string, l: Locale, font: string) {
 
   if (kind === 'work') {
     const r = experience.find((x) => x.company.toLowerCase() === id)!;
-    ctx.fillStyle = INK;
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = '#a7a8ad';
+    const b = BRANDS[id];
+    cityMap(ctx, b, font, id.length * 7919);
+    ctx.fillStyle = PAPER;
+    ctx.globalAlpha = 0.8;
     ctx.font = f(500, 44);
     ctx.fillText(`${t.work[l]} · ${period(r.start, r.end, l)}`, 100, 150);
+    ctx.globalAlpha = 1;
+    const logo = await image(b.logo);
+    const lh = (b.width * logo.height) / logo.width;
+    ctx.drawImage(tint(logo, b.width, lh, PAPER), 100 + b.x, 250 + b.y);
     ctx.fillStyle = PAPER;
-    fit(ctx, r.company, W - 200, 600, 260, font);
-    ctx.fillText(r.company, 92, 470);
-    ctx.font = f(500, 60);
-    wrap(ctx, r.title[l], 100, 600, W - 200, 76, 2);
-    more(100, H - 100, '#e9a77b');
+    ctx.font = f(500, 58);
+    wrap(ctx, r.title[l], 100, 250 + b.y + lh + 110, 760, 72, 3);
+    more(100, H - 100, PAPER);
   }
 
   if (kind === 'project') {
@@ -111,7 +219,8 @@ export async function posterTexture(id: string, l: Locale, font: string) {
     ctx.fillStyle = PAPER;
     ctx.fillRect(0, 0, W, H);
     const iw = 880;
-    if (p.image) cover(ctx, await image(p.image), 0, 0, iw, H);
+    const shot = p.poster ?? p.image;
+    if (shot) cover(ctx, await image(shot), 0, 0, iw, H);
     else waveform(ctx, 0, 0, iw, H);
     const x = iw + 70;
     const max = W - x - 70;
@@ -127,38 +236,6 @@ export async function posterTexture(id: string, l: Locale, font: string) {
     ctx.font = f(500, 48);
     wrap(ctx, p.tagline[l], x, 300 + lines * size * 0.95 + 40, max, 60, 4);
     more(x, H - 90);
-  }
-
-  if (kind === 'small') {
-    ctx.fillStyle = TEAL;
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = PAPER;
-    ctx.font = f(600, 116);
-    ctx.fillText(t.small[l], 100, 200);
-    experiments.forEach((e, i) => {
-      const y = 340 + i * 145;
-      ctx.globalAlpha = 0.35;
-      ctx.fillRect(100, y - 72, W - 200, 3);
-      ctx.globalAlpha = 1;
-      ctx.font = f(600, 66);
-      ctx.fillText(e.name, 100, y + 8);
-      ctx.font = f(500, 42);
-      ctx.fillText(e.year, W - 210, y + 8);
-    });
-    more(100, H - 70, '#f2d39b');
-  }
-
-  if (kind === 'contact') {
-    ctx.fillStyle = RED;
-    ctx.fillRect(0, 0, W, H);
-    ctx.fillStyle = PAPER;
-    ctx.font = f(600, 120);
-    ctx.fillText(t.contactTitle[l], 100, 250);
-    fit(ctx, person.email, W - 200, 600, 140, font);
-    ctx.fillText(person.email, 96, 520);
-    ctx.font = f(500, 50);
-    ctx.fillText('GitHub · CV', 100, 660);
-    more(100, H - 100, INK);
   }
 
   const tex = new THREE.CanvasTexture(c);

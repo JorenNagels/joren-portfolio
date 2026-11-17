@@ -10,26 +10,27 @@ export const projects: Project[] = [
     year: '2026',
     kind: { nl: 'Eigen product, in opbouw', en: 'My own product, in progress' },
     tagline: {
-      nl: 'Software voor weddingplanners.',
-      en: 'Software for wedding planners.',
+      nl: 'Planningssoftware voor weddingplanners en trouwlocaties.',
+      en: 'Planning software for wedding planners and venues.',
     },
     story: {
-      nl: 'Een weddingplanner houdt vaak per bruiloft een eigen Excel bij voor gasten, RSVP’s en dieetwensen. Guestnote zet al die bruiloften in één dashboard, en elk koppel krijgt een trouwwebsite met het logo van de planner erop. Ik doe het alleen: de naam (na zo’n 600 gecheckte domeinen), het ontwerp, de code en de AWS-setup.',
-      en: 'Wedding planners often keep a spreadsheet per wedding for guests, RSVPs and dietary needs. Guestnote puts all their weddings in one dashboard, and every couple gets a wedding website with the planner’s logo on it. I’m doing it alone: the name (after checking about 600 domains), the design, the code and the AWS setup.',
+      nl: 'Een weddingplanner runt elke bruiloft vanuit een Excel en een WhatsApp-groep. Guestnote zet al die bruiloften op één plek: taken die terugrekenen vanaf de trouwdatum, een draaiboek voor de dag, het budget en de betalingen, en de leveranciers. Elke leverancier krijgt een link naar zijn deel van de dag, en het koppel een eigen portaal waarin de planner kiest wat ze zien. Daarna volgt per koppel een trouwwebsite met RSVP voor de gasten. Ik doe het alleen: de naam (na zo’n 600 gecheckte domeinen), het ontwerp, de code en de AWS-setup.',
+      en: 'Wedding planners run each wedding from a spreadsheet and a WhatsApp group. Guestnote puts all their weddings in one place: tasks that count back from the wedding date, a run sheet for the day, the budget and payments, and the vendors. Each vendor gets a link to their part of the day, and the couple gets a portal where the planner chooses what they see. Next comes a wedding website with RSVP for each couple’s guests. I’m doing it alone: the name (after checking about 600 domains), the design, the code and the AWS setup.',
     },
     detail: {
-      nl: 'De data van elke planner moet gescheiden blijven. Dat dwingt Postgres zelf af met row-level security, en de tests draaien tegen de echte database.',
-      en: 'Each planner’s data has to stay separate. Postgres enforces that itself with row-level security, and the tests run against the real database.',
+      nl: 'De data van elke studio moet gescheiden blijven, en een koppel of leverancier ziet enkel wat de planner deelt. Dat dwingt Postgres zelf af met row-level security, en de tests draaien tegen de echte database.',
+      en: 'Each studio’s data has to stay separate, and a couple or vendor sees only what the planner shares. Postgres enforces that itself with row-level security, and the tests run against the real database.',
     },
     stack: ['Next.js', 'Postgres', 'Drizzle', 'Better Auth', 'SST', 'AWS'],
     links: [
-      { label: site, href: 'https://guestnote.be' },
+      { label: site, href: 'https://guestnote.be' }, // the screenshot is of staging, which is ahead of guestnote.be
       { label: code, href: 'https://github.com/JorenNagels/guestnote' },
     ],
     image: '/projects/guestnote.jpg',
+    poster: '/projects/guestnote-poster.jpg',
     cv: {
-      nl: 'Software voor weddingplanners: al hun bruiloften in één dashboard, met een trouwwebsite per koppel. Data per planner gescheiden met Postgres row-level security.',
-      en: 'Software for wedding planners: all their weddings in one dashboard, with a wedding website per couple. Each planner’s data kept apart with Postgres row-level security.',
+      nl: 'Planningssoftware voor weddingplanners: taken, draaiboek, budget en leveranciers van al hun bruiloften op één plek, met een portaal voor het koppel. Data per studio gescheiden met Postgres row-level security.',
+      en: 'Planning software for wedding planners: tasks, run sheet, budget and vendors for all their weddings in one place, with a portal for the couple. Each studio’s data kept apart with Postgres row-level security.',
     },
   },
   {
@@ -76,6 +77,7 @@ export const projects: Project[] = [
     stack: ['Next.js', 'React', 'DynamoDB', 'Lambda', 'CDK', 'Clerk'],
     links: [{ label: site, href: 'https://se-parti.be' }],
     image: '/projects/se-parti.jpg',
+    poster: '/projects/se-parti-poster.jpg',
     cv: {
       nl: 'Website en RSVP-app voor een wedding- en eventbureau. Elke bruiloft krijgt een eigen AWS-stack, uitgerold uit dezelfde CDK-code.',
       en: 'Website and RSVP app for a wedding and event planner. Every wedding gets its own AWS stack, deployed from the same CDK code.',
@@ -100,33 +102,36 @@ export const projects: Project[] = [
       { label: code, href: 'https://github.com/JorenNagels/flowsha' },
     ],
     image: '/projects/flowsha.jpg',
+    poster: '/projects/flowsha-poster.jpg',
     cv: {
       nl: 'Website met boekingsformulier voor een hoepelschool in het VK. S3, CloudFront en Lambda in CDK.',
       en: 'Website with a booking form for a hula-hoop teacher in the UK. S3, CloudFront and Lambda in CDK.',
     },
   },
   {
-    slug: 'dream-team',
-    name: 'Dream Team Productions',
+    slug: 'elliot',
+    name: 'Elliot Barham',
     year: '2026',
-    kind: { nl: 'Twee websites, VK', en: 'Two websites, UK' },
+    kind: { nl: 'Portfoliosite, VK', en: 'Portfolio site, UK' },
     tagline: {
-      nl: 'Voor een productiehuis dat esports en vechtsport uitzendt.',
-      en: 'For a production company that broadcasts esports and combat sports.',
+      nl: 'Voor een Britse presentator en eventhost.',
+      en: 'For a UK event host and presenter.',
     },
     story: {
-      nl: 'De site van het productiehuis, met een filterbare lijst van hun producties, en de site van hun presentator Elliot Barham. De bedrijfssite is enkel typografie, wit op zwart.',
-      en: 'The company site, with a filterable list of their productions, and the site of their presenter, Elliot Barham. The company site is type only, white on black.',
+      nl: 'Een portfoliosite van één pagina voor Elliot Barham, presentator bij Dream Team Productions: zijn diensten, de merken waarvoor hij werkte, clips, foto’s en reviews. Het begon als een HTML-bestand van 3 MB dat met AI gemaakt was. Ik bouwde het opnieuw als statische Next.js-site, met dezelfde look.',
+      en: 'A one-page portfolio for Elliot Barham, a presenter at Dream Team Productions: what he does, the brands he has worked for, clips, photos and reviews. It started as a 3 MB HTML file made with AI. I rebuilt it as a static Next.js site with the same look.',
     },
-    stack: ['Next.js', 'S3', 'CloudFront'],
-    links: [
-      { label: site, href: 'https://dreamteamproductions.co.uk' },
-      { label: { nl: 'Elliot Barham', en: 'Elliot Barham' }, href: 'https://elliot.dreamteamproductions.co.uk' },
-    ],
-    image: '/projects/dream-team.jpg',
+    detail: {
+      nl: 'Elliot stuurt de link zelf naar klanten, dus de site houdt zoekmachines en AI-crawlers bewust buiten. De foto’s worden bij de build naar WebP omgezet, en hij draait gratis op GitHub Pages.',
+      en: 'Elliot sends the link to clients himself, so the site keeps search engines and AI crawlers out on purpose. The photos are converted to WebP at build time, and it runs for free on GitHub Pages.',
+    },
+    stack: ['Next.js', 'Tailwind', 'GitHub Pages'],
+    links: [{ label: site, href: 'https://elliot.dreamteamproductions.co.uk' }],
+    image: '/projects/elliot.jpg',
+    poster: '/projects/elliot-poster.jpg',
     cv: {
-      nl: 'Twee sites voor een Brits productiehuis en hun presentator. Statische Next.js op S3 en CloudFront.',
-      en: 'Two sites for a UK production company and its presenter. Static Next.js on S3 and CloudFront.',
+      nl: 'Portfoliosite voor een Britse presentator. Een AI-gegenereerd HTML-bestand van 3 MB herbouwd als statische Next.js-site op GitHub Pages.',
+      en: 'Portfolio site for a UK presenter. A 3 MB AI-generated HTML file rebuilt as a static Next.js site on GitHub Pages.',
     },
   },
 ];
