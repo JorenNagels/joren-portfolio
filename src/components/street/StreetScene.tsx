@@ -17,6 +17,7 @@ import { posterTexture } from './posters';
 import { streetCopy } from './copy';
 import { type Framing, type Line, paintBoard, placeBoard, skyBoard, split2 } from './skyBoard';
 import { type RGB, skyAt } from './sky';
+import { stage } from './stage';
 import { inkPass, reflectionMaterial, toonMaterial, uniforms, waterMaterial } from './toon';
 
 export type StreetState = {
@@ -134,6 +135,13 @@ function Boats({ body }: { body?: Made }) {
       { ...aboard(kayak(6, '#d9534a')), x: 104, z: MIDSTREAM + 3.2, speed: -0.8 },
     ];
   }, []);
+  // The ones on the move can be heard: the tour boats' engines (the first two movers) and the kayaks' paddles.
+  useEffect(() => {
+    stage.movers = boats.filter((b) => b.speed !== 0).map((b, i) => Object.assign(b, { sound: i < 2 ? ('engine' as const) : ('paddle' as const) }));
+    return () => {
+      stage.movers = [];
+    };
+  }, [boats]);
   useFrame(({ clock }, dt) => {
     group.current?.children.forEach((c, i) => {
       const b = boats[i];
@@ -557,6 +565,12 @@ function Scene({ state, locale, onOpen, onSlow, onReady }: { state: RefObject<St
     const cam = camera as THREE.PerspectiveCamera;
     camera.position.copy(v.pos);
     camera.lookAt(v.look);
+    stage.cam.x = v.pos.x;
+    stage.cam.y = v.pos.y;
+    stage.cam.z = v.pos.z;
+    stage.intro = s.intro;
+    stage.outro = s.outro;
+    stage.night = sky.night;
     if (cam.fov !== fovNow) {
       cam.fov = fovNow;
       cam.updateProjectionMatrix();

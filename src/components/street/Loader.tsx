@@ -181,7 +181,7 @@ function Row({ reflect }: { reflect?: boolean }) {
   );
 }
 
-export function Loader({ l, built, ready, onMeasure, onOut }: { l: Locale; built: boolean; ready: boolean; onMeasure: (m: number, base: number) => void; onOut: () => void }) {
+export function Loader({ l, built, ready, go, onMeasure, onOut }: { l: Locale; built: boolean; ready: boolean; go: boolean; onMeasure: (m: number, base: number) => void; onOut: () => void }) {
   const root = useRef<HTMLDivElement>(null);
   const [out, setOut] = useState(false);
   const [gone, setGone] = useState(false);
@@ -199,9 +199,10 @@ export function Loader({ l, built, ready, onMeasure, onOut }: { l: Locale; built
     return () => removeEventListener('resize', measure);
   }, [onMeasure]);
 
-  // Let every house finish popping up before they fold away again, then hand over to the street.
+  // Once the visitor has stepped aboard, let every house finish popping up before they fold away again, then hand
+  // over to the street.
   useEffect(() => {
-    if (!ready || !root.current) return;
+    if (!ready || !go || !root.current) return;
     let alive = true;
     const pops = root.current.getAnimations({ subtree: true }).filter((a) => (a as CSSAnimation).animationName === 'pop-up');
     Promise.all(pops.map((a) => a.finished))
@@ -214,7 +215,7 @@ export function Loader({ l, built, ready, onMeasure, onOut }: { l: Locale; built
     return () => {
       alive = false;
     };
-  }, [ready, onOut]);
+  }, [ready, go, onOut]);
   useEffect(() => {
     if (!out) return;
     const id = setTimeout(() => setGone(true), 1400);
@@ -236,7 +237,7 @@ export function Loader({ l, built, ready, onMeasure, onOut }: { l: Locale; built
           </div>
         </div>
         {/* where the street's own menu will be, in the same pill */}
-        <p className="absolute bottom-4 left-1/2 -translate-x-1/2 whitespace-nowrap rounded-full bg-[#f4f0e4] px-4 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-[#25262f] shadow-[0_2px_0_#25262f] ring-[1.5px] ring-[#25262f] sm:bottom-6">
+        <p className={`absolute bottom-4 left-1/2 transition-opacity duration-500 ${ready ? 'opacity-0' : ''} -translate-x-1/2 whitespace-nowrap rounded-full bg-[#f4f0e4] px-4 py-1.5 font-mono text-[11px] uppercase tracking-[0.14em] text-[#25262f] shadow-[0_2px_0_#25262f] ring-[1.5px] ring-[#25262f] sm:bottom-6`}>
           {built ? t.loadBoat[l] : t.loadHouses[l]}
           <span className="dots"><span>.</span><span>.</span><span>.</span></span>
         </p>

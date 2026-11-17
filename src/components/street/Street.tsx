@@ -42,6 +42,12 @@ export function Street({ locale: l }: { locale: Locale }) {
   const [ready, setReady] = useState(false);
   const [shown, setShown] = useState(false);
   const onReady = useCallback(() => setReady(true), []);
+  // Then the visitor steps aboard: a click or key press, which is also what lets the browser play the music.
+  const [started, setStarted] = useState(false);
+  const [gateGone, setGateGone] = useState(false);
+  const startBtn = useRef<HTMLButtonElement>(null);
+  const start = useCallback(() => setStarted(true), []);
+  const gate = ready && !started;
   // The loader says where it drew the houses, so the 3D camera can start on the very same picture.
   const onMeasure = useCallback((m: number, base: number) => {
     if (!state.current.reduced) state.current.arrival = { m, base, at: Infinity };
@@ -149,6 +155,44 @@ export function Street({ locale: l }: { locale: Locale }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [webgl]);
 
+  // While the start button waits: no scrolling yet (the trip would move on behind the loader), any key starts, and
+  // trying to scroll gives the button a wiggle, since a scroll can't start the sound.
+  useEffect(() => {
+    if (!gate) return;
+    const html = document.documentElement;
+    html.classList.add('gated');
+    lenis()?.stop();
+    const key = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey || ['Tab', 'Shift', 'Escape', 'CapsLock'].includes(e.key)) return;
+      // keep the header working from the keyboard: its links and the sound button
+      if ((e.target as Element | null)?.closest?.('a, .music')) return;
+      e.preventDefault();
+      setStarted(true);
+    };
+    let last = 0;
+    const tried = () => {
+      const now = performance.now();
+      if (now - last < 700) return;
+      last = now;
+      startBtn.current?.animate({ rotate: ['0deg', '-7deg', '6deg', '-4deg', '2deg', '0deg'] }, { duration: 550, easing: 'ease-out' });
+    };
+    addEventListener('keydown', key);
+    addEventListener('wheel', tried, { passive: true });
+    addEventListener('touchmove', tried, { passive: true });
+    return () => {
+      html.classList.remove('gated');
+      lenis()?.start();
+      removeEventListener('keydown', key);
+      removeEventListener('wheel', tried);
+      removeEventListener('touchmove', tried);
+    };
+  }, [gate]);
+  useEffect(() => {
+    if (!started) return;
+    const id = setTimeout(() => setGateGone(true), 500);
+    return () => clearTimeout(id);
+  }, [started]);
+
   const openStop = useCallback((id: string) => {
     state.current.focus = id;
     setOpen(id);
@@ -184,14 +228,37 @@ export function Street({ locale: l }: { locale: Locale }) {
         <div className={`absolute inset-0 transition-opacity duration-500 ease-out ${shown ? 'opacity-100' : 'opacity-0'}`}>
           {webgl && <StreetScene state={state} locale={l} active={active} onOpen={openStop} onReady={onReady} />}
         </div>
-        <Loader l={l} built={built} ready={ready} onMeasure={onMeasure} onOut={onShown} />
+        <Loader l={l} built={built} ready={ready} go={started} onMeasure={onMeasure} onOut={onShown} />
+        {/* Click anywhere to start (and not on the street behind, which is still hidden) */}
+        {gate && <div className="absolute inset-0 cursor-pointer" onClick={start} aria-hidden />}
 
-        {/* While the street loads: the name over the pop-up houses. Once the street is in, the name hangs in its sky
-            (skyBoard.ts), with the scroll hint under it, and the camera swings round to it. */}
-        <p className={`pointer-events-none absolute inset-x-0 top-[16%] px-4 text-center transition-opacity duration-700 ${shown ? 'opacity-0' : ''}`} aria-hidden>
-          <span className="block text-base sm:text-lg">{t.role[l]}</span>
-          <span className="mt-1 block text-[clamp(2.5rem,8.2vw,8.9rem)] font-semibold leading-[0.85] tracking-[-0.055em]">{person.name}</span>
-        </p>
+        {/* While the street loads: the name over the pop-up houses, and once it's in, the button to step aboard. Then
+            the name hangs in the street's sky (skyBoard.ts), with the scroll hint under it, and the camera swings round
+            to it. */}
+        <div className="pointer-events-none absolute inset-x-0 top-[16%] px-4 text-center">
+          <p className={`transition-opacity duration-700 ${shown ? 'opacity-0' : ''}`} aria-hidden>
+            <span className="block text-base sm:text-lg">{t.role[l]}</span>
+            <span className="mt-1 block text-[clamp(2.5rem,8.2vw,8.9rem)] font-semibold leading-[0.85] tracking-[-0.055em]">{person.name}</span>
+          </p>
+          {ready && !gateGone && (
+            <div className="gate mt-[clamp(1.25rem,5vh,3rem)] flex flex-col items-center" data-go={started || undefined}>
+              <button
+                ref={startBtn}
+                type="button"
+                onClick={start}
+                disabled={started}
+                className="pointer-events-auto relative flex cursor-pointer items-center gap-3 rounded-full bg-[#f4f0e4] py-2.5 pl-2.5 pr-6 text-lg font-semibold text-[#25262f] shadow-[0_4px_0_#25262f] ring-[1.5px] ring-[#25262f] outline-offset-4 sm:text-xl"
+              >
+                <span className="grid h-9 w-9 place-items-center rounded-full bg-[#25262f] text-[#f4f0e4]">
+                  <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true">
+                    <path d="M3.5 1.8v10.4L12 7z" fill="currentColor" />
+                  </svg>
+                </span>
+                {t.start[l]}
+              </button>
+            </div>
+          )}
+        </div>
 
         <div ref={(x) => { els.current.hint = x; }} className="pointer-events-none invisible absolute left-1/2 top-20 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-3xl text-center bg-[#25262f] px-4 py-2 text-sm text-[#f4f0e4]" style={{ opacity: 0 }}>
           <span className="[@media(pointer:coarse)]:hidden">{t.hint[l]}</span>

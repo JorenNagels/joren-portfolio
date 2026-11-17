@@ -6,6 +6,7 @@ export const streetCopy = {
   loadHouses: { nl: 'De huizen rechtzetten', en: 'Propping up the houses' },
   loadBoat: { nl: 'De boot te water laten', en: 'Putting the boat in the water' },
   scroll: { nl: 'Scroll om te varen', en: 'Scroll to sail' },
+  start: { nl: 'Stap aan boord', en: 'Step aboard' },
   hint: { nl: 'Beweeg je muis om rond te kijken, sleep om je om te draaien. Klik op een affiche voor meer.', en: 'Move your mouse to look around, drag to turn right round. Click a poster to read more.' },
   hintTouch: { nl: 'Veeg opzij om rond te kijken, ook naar achter. Tik op een affiche voor meer.', en: 'Swipe sideways to look around, behind you too. Tap a poster to read more.' },
   hello: { nl: 'Hallo, ik ben', en: 'Hi, I’m' },

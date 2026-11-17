@@ -16,7 +16,7 @@ export default async function Home({ params }: { params: Promise<{ locale: Local
     <>
       <Motion />
       <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-end px-4 text-sm sm:px-8">
-        <nav className="nav-plate flex items-center gap-5 rounded-full border border-white/15 bg-black/50 px-4 py-2 text-white shadow-[0_2px_14px_rgba(0,0,0,0.35)] backdrop-blur-md">
+        <nav className="nav-plate relative flex items-center gap-5 rounded-full border border-white/15 bg-black/50 px-4 py-2 text-white shadow-[0_2px_14px_rgba(0,0,0,0.35)] backdrop-blur-md">
           <Music locale={l} />
           <Link href={`/${l}/cv/`} className="hover:underline">{ui.nav.cv[l]}</Link>
           <LangSwitch locale={l} />

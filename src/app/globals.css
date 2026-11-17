@@ -291,7 +291,79 @@ html:not(.walk) .music {
   }
 }
 
+/* Stepping aboard (street/Street.tsx): the button pops up once the street is ready, floats and gives off a ripple
+   until it is clicked, and folds away when it is. Hover and press use `translate`, so they add to the float. */
+html.gated {
+  overflow: hidden;
+}
+.gate {
+  animation: gate-in 650ms cubic-bezier(0.25, 1.45, 0.45, 1) both;
+}
+.gate[data-go] {
+  animation: gate-out 380ms cubic-bezier(0.5, 0, 0.75, 0) both;
+}
+.gate button {
+  animation: float 2.4s ease-in-out 650ms infinite alternate;
+  transition: translate 150ms ease, box-shadow 150ms ease;
+}
+.gate button::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  border: 2px solid #f4f0e4;
+  animation: ripple 2.4s ease-out 900ms infinite;
+  pointer-events: none;
+}
+.gate button:hover {
+  translate: 0 -2px;
+  box-shadow: 0 6px 0 #25262f;
+}
+.gate button:active {
+  translate: 0 3px;
+  box-shadow: 0 1px 0 #25262f;
+}
+@keyframes gate-in {
+  from {
+    opacity: 0;
+    transform: translateY(18px) scale(0.6);
+  }
+}
+@keyframes gate-out {
+  to {
+    opacity: 0;
+    transform: translateY(-8px) scale(0.8);
+  }
+}
+@keyframes float {
+  from {
+    transform: translateY(-2px);
+  }
+  to {
+    transform: translateY(3px);
+  }
+}
+@keyframes ripple {
+  from {
+    opacity: 0.8;
+    transform: scale(1);
+  }
+  70%,
+  to {
+    opacity: 0;
+    transform: scale(1.18, 1.5);
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
+  .gate,
+  .gate button,
+  .gate button::before {
+    animation: none !important;
+  }
+  .gate[data-go] {
+    opacity: 0;
+  }
   .loader *,
   .loader *::before {
     animation: none !important;
