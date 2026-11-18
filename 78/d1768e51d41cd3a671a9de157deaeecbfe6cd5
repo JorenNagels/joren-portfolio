@@ -1,0 +1,21 @@
+src/app/[locale]/page.tsx
+  s_e1d8e17814fffd::t_74bed4297e309f 3,18-19
+src/components/Debug.tsx
+  s_e1d8e17814fffd::t_0ee5ae4eba5459 1-195
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "78d1768e51d41cd3a671a9de157deaeecbfe6cd5",
+  "prompts": {},
+  "sessions": {
+    "s_e1d8e17814fffd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_e1d8e17814fffd",
+        "model": "unknown"
+      },
+      "human_author": "JorenNagels <joren.nagels@aviv-group.com>"
+    }
+  }
+}
