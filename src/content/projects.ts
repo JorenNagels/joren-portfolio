@@ -14,8 +14,8 @@ export const projects: Project[] = [
       en: 'Planning software for wedding planners and venues.',
     },
     story: {
-      nl: 'Een weddingplanner regelt meerdere bruiloften tegelijk. De tools die er zijn, zijn gemaakt voor het koppel, niet voor de planner. Dus houden de meesten elke bruiloft bij in een eigen Excel en WhatsApp-groep.\n\nGuestnote is gemaakt voor de planner: al hun bruiloften op één plek, elk met eigen to-do’s, planning en leveranciers.\n\nIk bouw het alleen, van het ontwerp tot de AWS-setup.',
-      en: 'Wedding planners run several weddings at once. The tools out there are made for the couple, not the planner, so most keep each wedding in its own spreadsheet and WhatsApp group.\n\nGuestnote is made for the planner: all their weddings in one place, each with its own to-dos, planning and vendors.\n\nI’m building it on my own, from the design to the AWS setup.',
+      nl: 'Een weddingplanner regelt meerdere bruiloften tegelijk. De tools die er zijn, zijn gemaakt voor het koppel, niet voor de planner. Dus houden de meesten elke bruiloft bij in een eigen Excel en WhatsApp-groep.\n\nGuestnote is gemaakt voor de planner: al hun bruiloften op één plek, elk met eigen to-do’s, planning en leveranciers.',
+      en: 'Wedding planners run several weddings at once. The tools out there are made for the couple, not the planner, so most keep each wedding in its own spreadsheet and WhatsApp group.\n\nGuestnote is made for the planner: all their weddings in one place, each with its own to-dos, planning and vendors.',
     },
     stack: ['Next.js', 'Postgres', 'Drizzle', 'Better Auth', 'SST', 'AWS'],
     links: [
