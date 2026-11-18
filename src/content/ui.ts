@@ -39,10 +39,10 @@ export const ui = {
   projects: {
     title: { nl: 'Eigen projecten', en: 'Own projects' },
     text: {
-      nl: 'Dingen die ik naast mijn job bouw. De meeste staan echt online en worden gebruikt.',
-      en: 'Things I build next to my job. Most of them are online and in use.',
+      nl: 'Dingen die ik naast mijn job bouw.',
+      en: 'Things I build next to my job.',
     },
-    detail: { nl: 'Het interessante stuk', en: 'The interesting bit' },
+    detail: { nl: 'Onder de motorkap', en: 'Under the hood' },
     small: { nl: 'Kleiner werk', en: 'Smaller things' },
   },
   contact: {

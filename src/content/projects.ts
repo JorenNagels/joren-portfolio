@@ -8,18 +8,18 @@ export const projects: Project[] = [
     slug: 'guestnote',
     name: 'Guestnote',
     year: '2026',
-    kind: { nl: 'Eigen product, in opbouw', en: 'My own product, in progress' },
+    kind: { nl: 'Eigen product, in ontwikkeling', en: 'My own product, in development' },
     tagline: {
       nl: 'Planningssoftware voor weddingplanners en trouwlocaties.',
       en: 'Planning software for wedding planners and venues.',
     },
     story: {
-      nl: 'Een weddingplanner runt elke bruiloft vanuit een Excel en een WhatsApp-groep. Guestnote zet al die bruiloften op één plek: taken die terugrekenen vanaf de trouwdatum, een draaiboek voor de dag, het budget en de betalingen, en de leveranciers. Elke leverancier krijgt een link naar zijn deel van de dag, en het koppel een eigen portaal waarin de planner kiest wat ze zien. Daarna volgt per koppel een trouwwebsite met RSVP voor de gasten. Ik doe het alleen: de naam (na zo’n 600 gecheckte domeinen), het ontwerp, de code en de AWS-setup.',
-      en: 'Wedding planners run each wedding from a spreadsheet and a WhatsApp group. Guestnote puts all their weddings in one place: tasks that count back from the wedding date, a run sheet for the day, the budget and payments, and the vendors. Each vendor gets a link to their part of the day, and the couple gets a portal where the planner chooses what they see. Next comes a wedding website with RSVP for each couple’s guests. I’m doing it alone: the name (after checking about 600 domains), the design, the code and the AWS setup.',
+      nl: 'Een weddingplanner runt elke bruiloft vanuit een Excel en een WhatsApp-groep. Guestnote brengt ze samen op één plek: taken die terugrekenen vanaf de trouwdatum, een draaiboek voor de dag, budget, betalingen en leveranciers. Leveranciers krijgen een link naar hun deel van de dag, koppels een portaal met wat de planner met hen deelt. Ik bouw het alleen, van het ontwerp tot de AWS-setup.',
+      en: 'Wedding planners run each wedding from a spreadsheet and a WhatsApp group. Guestnote brings them together in one place: tasks planned back from the wedding date, a run sheet for the day, budget, payments and vendors. Vendors get a link to their part of the day, and couples get a portal with whatever the planner shares. I’m building it on my own, from the design to the AWS setup.',
     },
     detail: {
-      nl: 'De data van elke studio moet gescheiden blijven, en een koppel of leverancier ziet enkel wat de planner deelt. Dat dwingt Postgres zelf af met row-level security, en de tests draaien tegen de echte database.',
-      en: 'Each studio’s data has to stay separate, and a couple or vendor sees only what the planner shares. Postgres enforces that itself with row-level security, and the tests run against the real database.',
+      nl: 'Postgres houdt de data van elke studio zelf gescheiden, met row-level security. De tests draaien tegen een echte database.',
+      en: 'Postgres itself keeps each studio’s data apart, with row-level security. The tests run against a real database.',
     },
     stack: ['Next.js', 'Postgres', 'Drizzle', 'Better Auth', 'SST', 'AWS'],
     links: [
@@ -29,8 +29,8 @@ export const projects: Project[] = [
     image: '/projects/guestnote.jpg',
     poster: '/projects/guestnote-poster.jpg',
     cv: {
-      nl: 'Planningssoftware voor weddingplanners: taken, draaiboek, budget en leveranciers van al hun bruiloften op één plek, met een portaal voor het koppel. Data per studio gescheiden met Postgres row-level security.',
-      en: 'Planning software for wedding planners: tasks, run sheet, budget and vendors for all their weddings in one place, with a portal for the couple. Each studio’s data kept apart with Postgres row-level security.',
+      nl: 'Planningssoftware voor weddingplanners: taken, draaiboek, budget en leveranciers van al hun bruiloften op één plek, met een portaal voor het koppel. In ontwikkeling.',
+      en: 'Planning software for wedding planners: tasks, run sheet, budget and vendors for all their weddings in one place, with a portal for the couple. In development.',
     },
   },
   {
@@ -43,8 +43,8 @@ export const projects: Project[] = [
       en: 'Turns your trip footage into a film cut to the music.',
     },
     story: {
-      nl: 'Na een skireis had ik uren beelden van GoPro’s en gsm’s. beatcut is een Claude Code-skill die het saaie werk doet: dubbele clips eruit, de grappige momenten zoeken, knippen op de beat en de film renderen. Daarna kijk je de preview en zeg je dingen als “0:58 is saai”.',
-      en: 'After a ski trip I had hours of footage from GoPros and phones. beatcut is a Claude Code skill that does the boring part: drop the duplicate clips, find the funny moments, cut on the beat and render the film. Then you watch the preview and say things like “0:58 is boring”.',
+      nl: 'Na een skireis had ik uren beelden van GoPro’s en gsm’s. beatcut is een Claude Code-skill die het saaie werk doet: dubbele clips eruit, de grappige momenten zoeken, knippen op de beat en de film renderen. Daarna geef je feedback zoals “0:58 is saai”.',
+      en: 'After a ski trip I had hours of footage from GoPros and phones. beatcut is a Claude Code skill that does the boring part: drop the duplicate clips, find the funny moments, cut on the beat and render the film. Then you give notes like “0:58 is boring”.',
     },
     detail: {
       nl: 'Alles draait lokaal met Python, ffmpeg en OpenCV. Whisper-ondertitels en het herkennen van gelach zijn optioneel.',
@@ -67,20 +67,20 @@ export const projects: Project[] = [
       en: 'For a Belgian wedding and event planner.',
     },
     story: {
-      nl: 'De website van S’e parti, en de RSVP-app die hun koppels gebruiken. Gasten zoeken zichzelf op naam en antwoorden voor hun hele groep. Het koppel beheert de gastenlijst zelf.',
-      en: 'The S’e parti website, and the RSVP app their couples use. Guests look themselves up by name and reply for their whole group. The couple manages the guest list themselves.',
+      nl: 'De website van S’e parti, en de RSVP-app die hun koppels gebruiken. Gasten zoeken zichzelf op naam en antwoorden voor hun hele groep, het koppel beheert de gastenlijst. Al gebruikt voor drie bruiloften.',
+      en: 'The S’e parti website, and the RSVP app their couples use. Guests look themselves up by name and reply for their whole group, and the couple manages the guest list. Used for three weddings so far.',
     },
     detail: {
-      nl: 'Elke bruiloft krijgt een eigen AWS-stack met een eigen database, uitgerold uit dezelfde code. De gastenlijst van het ene koppel kan dus nooit bij het andere terechtkomen.',
-      en: 'Every wedding gets its own AWS stack with its own database, deployed from the same code. One couple’s guest list can never end up with another.',
+      nl: 'Elke bruiloft krijgt een eigen AWS-stack en database, uitgerold uit dezelfde code.',
+      en: 'Each wedding gets its own AWS stack and database, deployed from the same code.',
     },
     stack: ['Next.js', 'React', 'DynamoDB', 'Lambda', 'CDK', 'Clerk'],
     links: [{ label: site, href: 'https://se-parti.be' }],
     image: '/projects/se-parti.jpg',
     poster: '/projects/se-parti-poster.jpg',
     cv: {
-      nl: 'Website en RSVP-app voor een wedding- en eventbureau. Elke bruiloft krijgt een eigen AWS-stack, uitgerold uit dezelfde CDK-code.',
-      en: 'Website and RSVP app for a wedding and event planner. Every wedding gets its own AWS stack, deployed from the same CDK code.',
+      nl: 'Website en RSVP-app voor een wedding- en eventbureau, al gebruikt voor drie bruiloften. Elke bruiloft draait op een eigen AWS-stack, uitgerold uit dezelfde CDK-code.',
+      en: 'Website and RSVP app for a wedding and event planner, used for three weddings so far. Each wedding runs on its own AWS stack, deployed from the same CDK code.',
     },
   },
   {
@@ -93,8 +93,8 @@ export const projects: Project[] = [
       en: 'For a hula-hoop teacher in the UK.',
     },
     story: {
-      nl: 'Een snelle site met lessen, optredens en een boekingsformulier dat via AWS SES mailt. Hosting kost zo goed als niets: S3, CloudFront en één Lambda, allemaal in CDK.',
-      en: 'A fast site with classes, performances and a booking form that sends email through AWS SES. Hosting costs next to nothing: S3, CloudFront and one Lambda, all in CDK.',
+      nl: 'Een snelle site met lessen, optredens en een boekingsformulier dat via AWS SES mailt. Draait op S3, CloudFront en één Lambda, opgezet in CDK.',
+      en: 'A fast site with classes, performances and a booking form that sends email through AWS SES. Runs on S3, CloudFront and one Lambda, set up in CDK.',
     },
     stack: ['Next.js', 'CDK', 'Lambda', 'SES'],
     links: [
@@ -103,10 +103,6 @@ export const projects: Project[] = [
     ],
     image: '/projects/flowsha.jpg',
     poster: '/projects/flowsha-poster.jpg',
-    cv: {
-      nl: 'Website met boekingsformulier voor een hoepelschool in het VK. S3, CloudFront en Lambda in CDK.',
-      en: 'Website with a booking form for a hula-hoop teacher in the UK. S3, CloudFront and Lambda in CDK.',
-    },
   },
   {
     slug: 'elliot',
@@ -118,21 +114,17 @@ export const projects: Project[] = [
       en: 'For a UK event host and presenter.',
     },
     story: {
-      nl: 'Een portfoliosite van één pagina voor Elliot Barham, presentator bij Dream Team Productions: zijn diensten, de merken waarvoor hij werkte, clips, foto’s en reviews. Het begon als een HTML-bestand van 3 MB dat met AI gemaakt was. Ik bouwde het opnieuw als statische Next.js-site, met dezelfde look.',
-      en: 'A one-page portfolio for Elliot Barham, a presenter at Dream Team Productions: what he does, the brands he has worked for, clips, photos and reviews. It started as a 3 MB HTML file made with AI. I rebuilt it as a static Next.js site with the same look.',
+      nl: 'Een portfoliosite van één pagina voor Elliot Barham, presentator bij Dream Team Productions: zijn diensten, de merken waarvoor hij werkte, clips, foto’s en reviews. Gebouwd als statische Next.js-site.',
+      en: 'A one-page portfolio for Elliot Barham, a presenter at Dream Team Productions: what he does, the brands he has worked for, clips, photos and reviews. Built as a static Next.js site.',
     },
     detail: {
-      nl: 'Elliot stuurt de link zelf naar klanten, dus de site houdt zoekmachines en AI-crawlers bewust buiten. De foto’s worden bij de build naar WebP omgezet, en hij draait gratis op GitHub Pages.',
-      en: 'Elliot sends the link to clients himself, so the site keeps search engines and AI crawlers out on purpose. The photos are converted to WebP at build time, and it runs for free on GitHub Pages.',
+      nl: 'Elliot stuurt de link zelf naar klanten, dus de site blijft bewust buiten zoekmachines. Hij draait gratis op GitHub Pages.',
+      en: 'Elliot sends the link to clients himself, so the site stays out of search engines on purpose. It runs for free on GitHub Pages.',
     },
     stack: ['Next.js', 'Tailwind', 'GitHub Pages'],
     links: [{ label: site, href: 'https://elliot.dreamteamproductions.co.uk' }],
     image: '/projects/elliot.jpg',
     poster: '/projects/elliot-poster.jpg',
-    cv: {
-      nl: 'Portfoliosite voor een Britse presentator. Een AI-gegenereerd HTML-bestand van 3 MB herbouwd als statische Next.js-site op GitHub Pages.',
-      en: 'Portfolio site for a UK presenter. A 3 MB AI-generated HTML file rebuilt as a static Next.js site on GitHub Pages.',
-    },
   },
 ];
 
