@@ -9,8 +9,13 @@ variable "domain" {
   default = "nagels.dev"
 }
 
-variable "github_repo" {
-  description = "owner/name of the repo whose GitHub Actions may deploy."
+variable "github_sub" {
+  description = <<-EOT
+    Who GitHub says it is when it signs in. The owner's and the repo's numeric ids are in there as well as their
+    names, so that renaming either cannot hand these roles to whoever picks up the old name; GitHub has sent it
+    this way for repos made since July 2026. Read the exact prefix back with:
+      gh api repos/<owner>/<name>/actions/oidc/customization/sub
+  EOT
   type        = string
-  default     = "JorenNagels/joren-portfolio"
+  default     = "repo:JorenNagels@37642555/joren-portfolio@1456589136"
 }

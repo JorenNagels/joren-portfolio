@@ -11,12 +11,12 @@ locals {
     # Release tags (v1, v2, ...): terraform apply + upload the site. Admin, but only inside this
     # account, which holds nothing except nagels.dev. Pushing to main deploys nothing.
     "github-deploy" = {
-      subject = "repo:${var.github_repo}:ref:refs/tags/v*"
+      subject = "${var.github_sub}:ref:refs/tags/v*"
       policy  = "arn:aws:iam::aws:policy/AdministratorAccess"
     }
     # Pull requests: terraform plan only, read-only.
     "github-plan" = {
-      subject = "repo:${var.github_repo}:pull_request"
+      subject = "${var.github_sub}:pull_request"
       policy  = "arn:aws:iam::aws:policy/ReadOnlyAccess"
     }
   }
