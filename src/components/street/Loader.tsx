@@ -5,9 +5,10 @@ import { type Col, FLOOR, GRASLEI, GROUND, type HouseSpec, palette } from './pla
 
 /*
  * While the 3D street loads: the Graslei as a pop-up book. The same houses as the street, in the same order and
- * colours, fold up from the quay one by one, their reflections fold down into the water, and the boat bobs past.
+ * colours, keep folding up from the quay and down again, in a wave from left to right, until the street is ready, and then
+ * stay up. Their reflections fold down into the water, and the boat bobs past.
  * Once the street has drawn its first frame, it comes in behind them seen from the very same spot and at the same
- * size, the drawn houses dissolve into the real ones from the middle out, and the camera swings up into the river.
+ * size, the drawn houses dissolve into the real ones from left to right, and the camera swings up into the river.
  *
  * Everything that moves is a CSS transform on its own element, so the browser animates it off the main thread:
  * it keeps going while the street is being built, which holds up everything else for half a second.
@@ -168,12 +169,11 @@ function Boat() {
 }
 
 function Row({ reflect }: { reflect?: boolean }) {
-  const mid = (GRASLEI.length - 1) / 2;
   return (
     <div className={reflect ? 'row reflect' : 'row'}>
       {GRASLEI.map((h, i) => (
-        // the middle house goes up first and the rest follow outwards, like a book being opened
-        <div key={i} style={{ ['--d' as string]: Math.abs(i - mid) }}>
+        // the leftmost house goes up first and the rest follow along the quay, a wave from left to right
+        <div key={i} style={{ ['--d' as string]: i }}>
           <House h={h} i={i} />
         </div>
       ))}
@@ -198,6 +198,20 @@ export function Loader({ l, built, ready, go, onMeasure, onOut }: { l: Locale; b
     addEventListener('resize', measure);
     return () => removeEventListener('resize', measure);
   }, [onMeasure]);
+
+  // While loading, the houses pop up and fold down on a loop. Once the street is ready, each one runs on to the middle
+  // of its next stretch standing up (halfway through an iteration of `pop-up`) and holds there: one already up stops
+  // where it is, one on its way up finishes rising, one folding down or lying flat comes back up first.
+  useEffect(() => {
+    if (!ready || !root.current) return;
+    for (const a of root.current.getAnimations({ subtree: true })) {
+      if ((a as CSSAnimation).animationName !== 'pop-up') continue;
+      const { currentIteration, progress } = a.effect!.getComputedTiming();
+      const n = currentIteration ?? 0;
+      const p = progress ?? 0;
+      a.effect!.updateTiming({ iterations: p < 0.5 ? n + 0.5 : p <= 0.66 ? n + p : n + 1.5 });
+    }
+  }, [ready]);
 
   // Once the visitor has stepped aboard, let every house finish popping up before they fold away again, then hand
   // over to the street.
