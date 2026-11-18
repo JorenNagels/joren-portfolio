@@ -407,7 +407,9 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
   const look = useRef({ yaw: 0, pitch: 0, ty: 0, tp: 0, turn: 0, nx: 0, drag: null as null | { x: number; y: number } });
   useEffect(() => {
     const el = gl.domElement;
-    el.style.touchAction = 'pan-y'; // vertical swipes still scroll the page
+    // The boat sails itself on a touch screen, so the page underneath has nothing to scroll and every swipe,
+    // in any direction, is yours to look with. Nothing has to be shared between looking and travelling.
+    el.style.touchAction = coarse ? 'none' : 'pan-y';
     const clamp = (a: number) => Math.max(-TURN, Math.min(TURN, a));
     const follows = (e: PointerEvent) => e.pointerType === 'mouse' && !state.current.reduced;
     const down = (e: PointerEvent) => {
@@ -449,7 +451,7 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
       removeEventListener('pointerup', up);
       removeEventListener('pointercancel', up);
     };
-  }, [gl, state]);
+  }, [gl, state, coarse]);
 
   useFrame((_, dt) => {
     const s = state.current;
