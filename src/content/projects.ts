@@ -14,12 +14,8 @@ export const projects: Project[] = [
       en: 'Planning software for wedding planners and venues.',
     },
     story: {
-      nl: 'Een weddingplanner runt elke bruiloft vanuit een Excel en een WhatsApp-groep. Guestnote brengt ze samen op één plek: taken die terugrekenen vanaf de trouwdatum, een draaiboek voor de dag, budget, betalingen en leveranciers. Leveranciers krijgen een link naar hun deel van de dag, koppels een portaal met wat de planner met hen deelt. Ik bouw het alleen, van het ontwerp tot de AWS-setup.',
-      en: 'Wedding planners run each wedding from a spreadsheet and a WhatsApp group. Guestnote brings them together in one place: tasks planned back from the wedding date, a run sheet for the day, budget, payments and vendors. Vendors get a link to their part of the day, and couples get a portal with whatever the planner shares. I’m building it on my own, from the design to the AWS setup.',
-    },
-    detail: {
-      nl: 'Postgres houdt de data van elke studio zelf gescheiden, met row-level security. De tests draaien tegen een echte database.',
-      en: 'Postgres itself keeps each studio’s data apart, with row-level security. The tests run against a real database.',
+      nl: 'Een weddingplanner regelt meerdere bruiloften tegelijk. De tools die er zijn, zijn gemaakt voor het koppel, niet voor de planner. Dus houden de meesten elke bruiloft bij in een eigen Excel en WhatsApp-groep.\n\nGuestnote is gemaakt voor de planner: al hun bruiloften op één plek, elk met eigen to-do’s, planning en leveranciers.\n\nIk bouw het alleen, van het ontwerp tot de AWS-setup.',
+      en: 'Wedding planners run several weddings at once. The tools out there are made for the couple, not the planner, so most keep each wedding in its own spreadsheet and WhatsApp group.\n\nGuestnote is made for the planner: all their weddings in one place, each with its own to-dos, planning and vendors.\n\nI’m building it on my own, from the design to the AWS setup.',
     },
     stack: ['Next.js', 'Postgres', 'Drizzle', 'Better Auth', 'SST', 'AWS'],
     links: [
@@ -29,8 +25,8 @@ export const projects: Project[] = [
     image: '/projects/guestnote.jpg',
     poster: '/projects/guestnote-poster.jpg',
     cv: {
-      nl: 'Planningssoftware voor weddingplanners: taken, draaiboek, budget en leveranciers van al hun bruiloften op één plek, met een portaal voor het koppel. In ontwikkeling.',
-      en: 'Planning software for wedding planners: tasks, run sheet, budget and vendors for all their weddings in one place, with a portal for the couple. In development.',
+      nl: 'Planningssoftware voor weddingplanners. Bestaande tools zijn gemaakt voor het koppel, met Guestnote beheren planners al hun bruiloften op één plek. In ontwikkeling.',
+      en: 'Planning software for wedding planners. Existing tools are made for couples. Guestnote lets planners run all their weddings in one place. In development.',
     },
   },
   {

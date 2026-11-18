@@ -57,7 +57,8 @@ function Plain({ l }: { l: Locale }) {
         <section key={p.slug} className="mt-8">
           <h3 className="text-xl font-semibold">{p.name}</h3>
           <p className="text-muted">{p.kind[l]}, {p.year}</p>
-          <p className="mt-2">{p.tagline[l]} {p.story[l]}</p>
+          <p className="mt-2">{p.tagline[l]}</p>
+          {p.story[l].split('\n\n').map((para) => <p key={para} className="mt-2">{para}</p>)}
           {p.detail && <p className="mt-2">{p.detail[l]}</p>}
           <p className="mt-2 text-muted">{p.stack.join(', ')}</p>
           <p className="mt-2 flex gap-4">
