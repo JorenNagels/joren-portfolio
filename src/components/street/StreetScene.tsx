@@ -358,7 +358,6 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
       ];
       const thanks: Line[] = [
         ...(tall ? split2(t.endTitle[locale]) : [t.endTitle[locale]]).map((text) => ({ text, size: S, weight: 600, tracking: -0.045, lead: 0.95 })),
-        { text: t.endText[locale], size: S * (tall ? 0.42 : 0.36), weight: 500, gap: S * 0.16 },
       ];
       const aniso = gl.capabilities.getMaxAnisotropy();
       // Paint each board at twice the width it covers on the screen, so the letters stay sharp when the shot

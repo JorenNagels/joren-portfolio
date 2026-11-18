@@ -12,17 +12,17 @@ export const person = {
   // The PDF export injects the phone number into the PDF only; it is never on the site.
 };
 
-export const headline: L = { nl: 'Developer', en: 'Developer' };
+export const headline: L = { nl: 'Full-stack developer', en: 'Full-stack developer' };
 
 /** Meta description and the line under the name on the CV. */
 export const intro: L = {
-  nl: 'Developer in Gent. Vijf jaar aan Realo gewerkt, nu bij Immoweb. Bouwt ’s avonds eigen dingen.',
-  en: 'Developer in Ghent. Five years on Realo, now at Immoweb. Builds his own things in the evenings.',
+  nl: 'Full-stack developer in Gent. Werkt sinds 2021 aan Realo, nu deel van Immoweb.',
+  en: 'Full-stack developer in Ghent. Working on Realo since 2021, now part of Immoweb.',
 };
 
 export const summary: L = {
-  nl: 'Developer uit Gent. Sinds november 2021 werk ik aan Realo, een Belgisch vastgoedplatform dat in 2026 bij Immoweb kwam. Ik begon op de sales-backoffice en trok uiteindelijk de herbouw van de site in Next.js, die in november 2026 als bèta live ging. Ik ben het meest thuis in TypeScript, React en PHP, en regel de AWS-kant zelf. In mijn vrije tijd bouw ik websites voor kleine zaken en software voor weddingplanners.',
-  en: 'Developer from Ghent. Since November 2021 I’ve worked on Realo, a Belgian property platform that became part of Immoweb in 2026. I started on the sales back office and ended up leading the rewrite of the site in Next.js, which went live as a beta in November 2026. I’m most at home in TypeScript, React and PHP, and I handle the AWS side myself. In my own time I build websites for small businesses and software for wedding planners.',
+  nl: 'Full-stack developer uit Gent. Sinds 2021 werk ik aan Realo, een Belgisch vastgoedplatform. Ik werk vooral in TypeScript, React en PHP, en heb wat ervaring met AWS. Naast mijn job bouw ik websites en apps voor kleine zaken.',
+  en: 'Full-stack developer from Ghent. I’ve worked on Realo, a Belgian property platform, since 2021. I work mostly in TypeScript, React and PHP, and have some experience with AWS. Outside work I build websites and apps for small businesses.',
 };
 
 export const experience: Role[] = [
@@ -30,28 +30,20 @@ export const experience: Role[] = [
     company: 'Immoweb',
     companyNote: { nl: 'AVIV Group', en: 'AVIV Group' },
     url: 'https://www.immoweb.be',
-    title: { nl: 'Software Engineer, tech lead van de Realo-herbouw', en: 'Software Engineer, tech lead on the Realo rewrite' },
+    title: { nl: 'Full-stack developer', en: 'Full-stack developer' },
     start: '2026-04',
     highlights: [
       {
-        nl: 'Schreef het plan om de ~83 schermen van Realo pagina per pagina van PHP naar Next.js te verhuizen, achter nginx. Het team koos in juni 2026 voor die aanpak.',
-        en: 'Wrote the plan for moving Realo’s ~83 screens from PHP to Next.js one page at a time, behind nginx. The team went with it in June 2026.',
+        nl: 'Leidde de herbouw van Realo van PHP naar Next.js, pagina per pagina naast de live site. Zette de nieuwe codebase agent-first op: van bij de start gebouwd met Claude Code, met docs en skills voor AI-agents.',
+        en: 'Led the rewrite of Realo from PHP to Next.js, page by page alongside the live site. Set up the new codebase agent-first: built with Claude Code from the start, with docs and skills for AI agents.',
       },
       {
-        nl: 'Bouwde een proof of concept waarin Node de PHP-sessies (igbinary in Redis) en de bestaande MySQL leest. Zette de nieuwe codebase op en ben er de grootste bijdrager aan.',
-        en: 'Built a proof of concept in which Node reads PHP’s sessions (igbinary in Redis) and the existing MySQL. Set up the new codebase and am its biggest contributor.',
+        nl: 'Verhuisde de login naar de nieuwe stack, met 2FA en passkeys, terwijl de PHP-site gewoon bleef draaien.',
+        en: 'Moved login to the new stack, including 2FA and passkeys, while the PHP site kept running.',
       },
       {
-        nl: 'Verhuisde de login naar Node terwijl de PHP-site gewoon bleef draaien, inclusief 2FA en passkeys. 142 tests, waarvan een deel de uitkomst vergelijkt met die van PHP.',
-        en: 'Moved login to Node while the PHP site kept running, including 2FA and passkeys. 142 tests, some of which compare the result with PHP’s.',
-      },
-      {
-        nl: 'Bouwde de zoek- en kaartpagina’s op OpenSearch en deck.gl. Zette de bèta op 3 november 2026 live op een eigen ECS-service, uitgerold via CircleCI en Terraform.',
-        en: 'Built the search and map pages on OpenSearch and deck.gl. Put the beta live on 3 November 2026 on its own ECS service, deployed with CircleCI and Terraform.',
-      },
-      {
-        nl: 'Zette Claude Code op voor het team. Mijn multi-agent PR-review wordt nu gedeeld binnen heel AVIV.',
-        en: 'Set up Claude Code for the team. My multi-agent PR review is now shared across AVIV.',
+        nl: 'Een van de eersten in het bedrijf die Claude Code dagelijks gebruikte en nieuwe features uitprobeerde. Bracht het in het team, schreef gedeelde skills en hielp collega’s op weg.',
+        en: 'One of the first in the company to use Claude Code daily and try out new features. Brought it into the team, wrote shared skills and helped colleagues get started.',
       },
     ],
   },
@@ -63,24 +55,28 @@ export const experience: Role[] = [
     end: '2026-04',
     highlights: [
       {
-        nl: 'Werkte aan Vlabel, de waarderingstool die Realo bouwt voor de Vlaamse Belastingdienst. Ik maakte de transactiezoeker, de vergelijkingspunten en het officiële waarderingsrapport.',
-        en: 'Worked on Vlabel, the valuation tool Realo builds for the Flemish Tax Administration. I made the transaction search, the comparison points and the official valuation report.',
+        nl: 'Bouwde de sales-backoffice: offertes, abonnementen en facturatie voor vastgoedkantoren.',
+        en: 'Built the sales back office: quotes, subscriptions and invoicing for estate agencies.',
       },
       {
-        nl: 'Maakte waarderingsrapporten voor vastgoedkantoren, waaronder het franchiserapport van ERA en een white-label versie voor Logic-Immo. Verhuisde de PDF-rendering naar Gotenberg.',
-        en: 'Made valuation reports for estate agencies, including ERA’s franchise report and a white-label version for Logic-Immo. Moved PDF rendering to Gotenberg.',
+        nl: 'Begeleidde samen met de tech lead de developers die na mij begonnen. Voerde pull requests en code reviews in, in plaats van rechtstreeks op main te committen.',
+        en: 'Onboarded and mentored the developers who joined after me, together with the tech lead. Introduced pull requests and code review, instead of committing straight to main.',
       },
       {
-        nl: 'Bouwde bewaarde zoekopdrachten voor kantoren: nieuwe panden worden gematcht met een Elasticsearch-percolator en als lead in hun CRM gezet.',
-        en: 'Built saved searches for agencies. New listings are matched with an Elasticsearch percolator and land in the agency’s CRM as leads.',
+        nl: 'Werkte aan Vlabel, de waarderingstool voor de Vlaamse Belastingdienst: transactiezoeker, vergelijkingspunten en het officiële waarderingsrapport.',
+        en: 'Worked on Vlabel, the valuation tool for the Flemish Tax Administration: transaction search, comparison points and the official valuation report.',
       },
       {
-        nl: 'Stak in 2024 de hele stack in Docker en verhuisde hem naar AWS ECS. Daarna de gedeelde devomgeving en de upgrade van PHP 7.4 naar 8.4.',
-        en: 'Put the whole stack in Docker and moved it to AWS ECS in 2024. After that, the shared dev environment and the PHP 7.4 to 8.4 upgrade.',
+        nl: 'Bouwde waarderingsrapporten voor vastgoedkantoren, ook als white-label versie.',
+        en: 'Built valuation reports for estate agencies, including white-label versions.',
       },
       {
-        nl: 'Merkte dat scrapers de site overspoelden en blokkeerde ze met AWS WAF, zo’n 810.000 requests per dag. Googlebot crawlde daarna ~700k pagina’s per dag in plaats van ~300k.',
-        en: 'Noticed scrapers swamping the site and blocked them with AWS WAF, about 810,000 requests a day. Afterwards Googlebot crawled ~700k pages a day instead of ~300k.',
+        nl: 'Bouwde bewaarde zoekopdrachten voor kantoren: nieuwe panden die matchen komen als lead in hun CRM.',
+        en: 'Built saved searches for agencies: matching new listings land in their CRM as leads.',
+      },
+      {
+        nl: 'Verhuisde de hele stack naar Docker op AWS ECS, met lagere AWS-kosten en snellere deploys als resultaat. Daarna de upgrade van PHP 7.4 naar 8.4.',
+        en: 'Moved the whole stack to Docker on AWS ECS, which lowered AWS costs and sped up deploys. Then upgraded PHP from 7.4 to 8.4.',
       },
     ],
   },
@@ -97,18 +93,6 @@ export const experience: Role[] = [
       },
     ],
   },
-  {
-    company: 'Horeca',
-    title: { nl: 'Jobstudent', en: 'Student jobs' },
-    start: '2014-07',
-    end: '2021-08',
-    highlights: [
-      {
-        nl: 'Bediening in restaurants, van mijn vijftiende tot ik bij Realo begon.',
-        en: 'Waiting tables in restaurants, from the age of fifteen until I started at Realo.',
-      },
-    ],
-  },
 ];
 
 export const education: { school: string; program: L; start: string; end: string; note?: L }[] = [
@@ -117,38 +101,40 @@ export const education: { school: string; program: L; start: string; end: string
     program: { nl: 'Toegepaste Informatica', en: 'Applied Computer Science' },
     start: '2018',
     end: '2021',
-    note: { nl: 'niet afgerond', en: 'not completed' },
+    note: { nl: 'gestopt om zelf React te leren', en: 'left to teach myself React' },
   },
   {
     school: 'UGent',
     program: { nl: 'Industrieel Ingenieur', en: 'Industrial Engineering' },
     start: '2017',
     end: '2018',
-    note: { nl: 'niet afgerond', en: 'not completed' },
+    note: { nl: 'overgestapt naar HOGENT', en: 'switched to HOGENT' },
   },
 ];
 
 export const skills: { group: L; items: string }[] = [
-  { group: { nl: 'Talen', en: 'Languages' }, items: 'TypeScript, PHP, SQL, Python, Bash' },
-  { group: { nl: 'Frontend', en: 'Frontend' }, items: 'React, Next.js, Tailwind, TanStack, deck.gl, MapLibre' },
+  { group: { nl: 'Talen', en: 'Languages' }, items: 'TypeScript, PHP, SQL' },
+  { group: { nl: 'Frontend', en: 'Frontend' }, items: 'React, Next.js, Tailwind' },
   { group: { nl: 'Backend', en: 'Backend' }, items: 'Node.js, MySQL, Postgres, Redis, OpenSearch, DynamoDB' },
-  { group: { nl: 'Infra', en: 'Infra' }, items: 'AWS (ECS, Lambda, S3, CloudFront, SES, WAF), Terraform, CDK, SST, Docker, nginx, CircleCI, GitHub Actions' },
-  { group: { nl: 'Verder', en: 'Also' }, items: 'Vitest, Playwright, Sentry, passkeys, Claude Code' },
+  { group: { nl: 'Infra', en: 'Infra' }, items: 'AWS (ECS, Lambda, S3, CloudFront, SES, WAF), Docker, nginx, GitHub Actions' },
 ];
 
 export const languages: { name: L; level: L }[] = [
   { name: { nl: 'Nederlands', en: 'Dutch' }, level: { nl: 'moedertaal', en: 'native' } },
   { name: { nl: 'Engels', en: 'English' }, level: { nl: 'vloeiend', en: 'fluent' } },
-  { name: { nl: 'Frans', en: 'French' }, level: { nl: 'werkkennis', en: 'working knowledge' } },
 ];
 
+/** One line under "Outside work" on the About poster. */
+export const sport: L = {
+  nl: 'Ik speel volleybal in eerste nationale.',
+  en: 'I play volleyball in Belgium’s first national division.',
+};
+
 export const learning: L[] = [
-  { nl: 'React Summit, Amsterdam (2026)', en: 'React Summit, Amsterdam (2026)' },
+  { nl: 'React Summit en JSNation, Amsterdam (2025, 2026)', en: 'React Summit and JSNation, Amsterdam (2025, 2026)' },
   { nl: 'Gaf intern talks over de Next.js-herbouw en de Docker-devomgeving', en: 'Gave internal talks on the Next.js rewrite and the Docker dev environment' },
 ];
 
 export const interests: L[] = [
-  { nl: 'Volleybal, nationale reeksen', en: 'Volleyball, national league' },
-  { nl: 'Leiding bij de scouts', en: 'Scout leader' },
-  { nl: 'Bordspellen ontwerpen', en: 'Designing board games' },
+  { nl: 'Volleybal, eerste nationale', en: 'Volleyball, first national division' },
 ];

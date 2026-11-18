@@ -2,7 +2,7 @@ import type { L } from '@/content/types';
 
 // Words used in the street itself: posters, captions, the panel and the ending.
 export const streetCopy = {
-  role: { nl: 'Software Engineer', en: 'Software Engineer' },
+  role: { nl: 'Full-stack developer', en: 'Full-stack developer' },
   loadHouses: { nl: 'De huizen rechtzetten', en: 'Propping up the houses' },
   loadBoat: { nl: 'De boot te water laten', en: 'Putting the boat in the water' },
   scroll: { nl: 'Scroll om te varen', en: 'Scroll to sail' },
@@ -20,7 +20,7 @@ export const streetCopy = {
   stops: { nl: 'Huizen langs de Leie', en: 'Houses along the Leie' },
   endTitle: { nl: 'Bedankt voor de boottocht.', en: 'Thanks for the boat trip.' },
   endText: { nl: 'Mail me, of vind me hier:', en: 'Email me, or find me here:' },
-  highlights: { nl: 'Wat ik er deed', en: 'What I did there' },
+  highlights: { nl: 'Een paar dingen die ik er deed', en: 'Some things I did there' },
   skills: { nl: 'Waar ik mee werk', en: 'What I work with' },
   languages: { nl: 'Talen', en: 'Languages' },
 } satisfies Record<string, L>;

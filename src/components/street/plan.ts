@@ -33,7 +33,7 @@ export const GRASLEI: HouseSpec[] = [
   { id: 'about', w: 8.4, floors: 3, gable: 'stepped', wall: 'cream', shutters: 'shutterGreen', steps: 5 },
   { w: 5.2, floors: 3, gable: 'pointed', wall: 'terracotta' },
   { w: 6, floors: 2, gable: 'cornice', wall: 'stone' },
-  { id: 'realo', w: 8, floors: 3, gable: 'stepped', wall: 'sand', steps: 6 },
+  { id: 'immoweb', w: 8, floors: 3, gable: 'stepped', wall: 'sand', steps: 6 },
   { w: 4.4, floors: 2, gable: 'pointed', wall: 'white', roof: 'roofWarm', shutters: 'shutterBlue' },
   { w: 7, floors: 3, gable: 'stepped', wall: 'brick', steps: 5 },
   { w: 7.4, floors: 3, gable: 'pointed', wall: 'cream', shutters: 'shutterBlue' },
@@ -51,7 +51,7 @@ export const GRASLEI: HouseSpec[] = [
 export const KORENLEI: HouseSpec[] = [
   { w: 7, floors: 3, gable: 'stepped', wall: 'ochre', steps: 5 },
   { w: 7.4, floors: 2, gable: 'pointed', wall: 'white', shutters: 'shutterGreen' },
-  { id: 'immoweb', w: 9.2, floors: 4, gable: 'cornice', wall: 'slate', awning: 'awning' },
+  { id: 'realo', w: 9.2, floors: 4, gable: 'cornice', wall: 'slate', awning: 'awning' },
   { w: 5, floors: 3, gable: 'pointed', wall: 'sage', roof: 'roofWarm' },
   { w: 5.6, floors: 2, gable: 'stepped', wall: 'cream', steps: 4 },
   { id: 'guestnote', w: 8, floors: 3, gable: 'stepped', wall: 'terracotta', steps: 5 },

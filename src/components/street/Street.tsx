@@ -4,7 +4,7 @@ import type Lenis from 'lenis';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { experience, languages, person, skills, summary } from '@/content/profile';
+import { experience, languages, person, skills, sport, summary } from '@/content/profile';
 import { projects } from '@/content/projects';
 import type { Locale } from '@/content/types';
 import { period, ui } from '@/content/ui';
@@ -552,6 +552,8 @@ function AboutPanel({ l }: { l: Locale }) {
       </dl>
       <h3 className="mt-8 text-sm font-semibold">{t.languages[l]}</h3>
       <p className="mt-2 text-[15px]">{languages.map((x) => `${x.name[l]} (${x.level[l]})`).join(', ')}</p>
+      <h3 className="mt-8 text-sm font-semibold">{ui.cv.interests[l]}</h3>
+      <p className="mt-2 text-[15px]">{sport[l]}</p>
       <Link href={`/${l}/cv/`} className="mt-8 inline-block underline">{ui.work.more[l]} →</Link>
     </article>
   );
@@ -584,7 +586,9 @@ function ProjectPanel({ id, l }: { id: string; l: Locale }) {
       <div className="mt-6 aspect-[16/10] overflow-hidden rounded-lg ring-[1.5px] ring-[#25262f]">
         {p.image ? <img src={p.image} alt="" className="h-full w-full object-cover object-top" /> : <BeatArt />}
       </div>
-      <p className="mt-6 leading-relaxed">{p.story[l]}</p>
+      <div className="mt-6 space-y-3 leading-relaxed">
+        {p.story[l].split('\n\n').map((para) => <p key={para}>{para}</p>)}
+      </div>
       {p.detail && (
         <p className="mt-5 border-l-2 border-[#c45a3d] pl-4 leading-relaxed">
           <span className="block text-sm font-semibold">{ui.projects.detail[l]}</span>
