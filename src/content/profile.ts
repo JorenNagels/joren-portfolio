@@ -21,8 +21,8 @@ export const intro: L = {
 };
 
 export const summary: L = {
-  nl: 'Full-stack developer uit Gent. Sinds 2021 werk ik aan Realo, een Belgisch vastgoedplatform. Ik werk vooral in TypeScript, React en PHP, en heb ook ervaring met AWS. Naast mijn job bouw ik websites en apps voor kleine zaken.',
-  en: 'Full-stack developer from Ghent. I’ve worked on Realo, a Belgian property platform, since 2021. I work mostly in TypeScript, React and PHP, and have experience with AWS too. Outside work I build websites and apps for small businesses.',
+  nl: 'Full-stack developer uit Gent. Sinds 2021 werk ik aan Realo, een Belgisch vastgoedplatform. Ik werk vooral in TypeScript, React en PHP, en heb wat ervaring met AWS. Naast mijn job bouw ik websites en apps voor kleine zaken.',
+  en: 'Full-stack developer from Ghent. I’ve worked on Realo, a Belgian property platform, since 2021. I work mostly in TypeScript, React and PHP, and have some experience with AWS. Outside work I build websites and apps for small businesses.',
 };
 
 export const experience: Role[] = [
@@ -137,5 +137,4 @@ export const learning: L[] = [
 
 export const interests: L[] = [
   { nl: 'Volleybal, eerste nationale', en: 'Volleyball, first national division' },
-  { nl: 'Bordspellen ontwerpen', en: 'Designing board games' },
 ];

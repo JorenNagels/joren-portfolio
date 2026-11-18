@@ -48,10 +48,6 @@ export const projects: Project[] = [
     },
     stack: ['Python', 'ffmpeg', 'OpenCV', 'Whisper', 'Remotion'],
     links: [{ label: code, href: 'https://github.com/JorenNagels/beatcut' }],
-    cv: {
-      nl: 'Claude Code-skill die reisbeelden ontdubbelt, de beste momenten zoekt en ze op de beat tot een film knipt. Lokaal, met Python en ffmpeg.',
-      en: 'Claude Code skill that de-duplicates trip footage, finds the best moments and cuts them into a film on the beat. Runs locally with Python and ffmpeg.',
-    },
   },
   {
     slug: 'se-parti',
@@ -99,6 +95,10 @@ export const projects: Project[] = [
     ],
     image: '/projects/flowsha.jpg',
     poster: '/projects/flowsha-poster.jpg',
+    cv: {
+      nl: 'Website met boekingsformulier voor een hoepelschool in het VK. S3, CloudFront en Lambda in CDK.',
+      en: 'Website with a booking form for a hula-hoop teacher in the UK. S3, CloudFront and Lambda in CDK.',
+    },
   },
   {
     slug: 'elliot',
@@ -140,10 +140,5 @@ export const experiments: { name: string; year: string; text: { nl: string; en: 
     name: 'Clapper',
     year: '2025',
     text: { nl: 'Filmreviews delen met vrienden. Een PWA op Supabase.', en: 'Share film reviews with friends. A PWA on Supabase.' },
-  },
-  {
-    name: 'Le Massif Realo',
-    year: '2026',
-    text: { nl: 'Een bordspel voor de skireis van het werk, met darts en dobbelstenen. Op papier, geen code.', en: 'A board game for the work ski trip, with darts and dice. On paper, no code.' },
   },
 ];

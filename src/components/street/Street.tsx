@@ -48,12 +48,20 @@ export function Street({ locale: l }: { locale: Locale }) {
   const startBtn = useRef<HTMLButtonElement>(null);
   const start = useCallback(() => setStarted(true), []);
   const gate = ready && !started;
-  // The loader says where it drew the houses, so the 3D camera can start on the very same picture.
+  // The loader says where it drew the houses, so the 3D camera can start on the very same picture. It keeps
+  // measuring on every resize, which is right while it is still on screen — turn the phone and the match cut
+  // follows. Once it has handed over there is nothing left to match: its houses are no longer laid out, so a
+  // fresh measurement is zero. iOS fires a resize the moment its URL bar collapses on the first scroll, and
+  // re-arming the cut from that reading put the camera back in the arrival shot at (base - half) / 0, forever,
+  // because `at: Infinity` means hold the shot. A camera with a NaN in its matrix draws nothing at all.
+  const handedOver = useRef(false);
   const onMeasure = useCallback((m: number, base: number) => {
-    if (!state.current.reduced) state.current.arrival = { m, base, at: Infinity };
+    if (state.current.reduced || handedOver.current || !(m > 0)) return;
+    state.current.arrival = { m, base, at: Infinity };
   }, []);
   const onShown = useCallback(() => {
     setShown(true);
+    handedOver.current = true;
     // the swing starts once the drawn houses have dissolved into the real ones
     if (state.current.arrival) state.current.arrival.at = performance.now() + 1100;
   }, []);
