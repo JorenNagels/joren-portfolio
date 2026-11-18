@@ -88,6 +88,11 @@ function snapToShadowPixels(l: THREE.DirectionalLight) {
 
 // Render sizes to fall back through when frames take too long.
 const SIZES = [2, 1.5, 1];
+// A phone starts at every pixel its screen has (three to the point on most) and steps down to two, then one and a
+// half, if frames run slow. Never below that: the picture is stretched to fit the screen, and on a phone, at one, the
+// ink lines and the title in the sky turn into staircases.
+const PHONE_SIZES = [3, 2, 1.5];
+const firstSize = () => (matchMedia('(pointer: coarse)').matches ? Math.min(devicePixelRatio, PHONE_SIZES[0]) : 2);
 
 // How far the mouse's own look reaches: sideways, up and down (radians).
 const YAW = 0.85;
@@ -452,11 +457,15 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
     const sky = skyAt(s.p);
     uniforms.uTime.value += dt;
     const q = load.current;
-    if (!coarse && dt < 0.25 && q.step < SIZES.length - 1 && performance.now() > q.from) {
+    const sizes = coarse ? PHONE_SIZES : SIZES;
+    if (dt < 0.25 && q.step < sizes.length - 1 && performance.now() > q.from) {
       q.frames++;
       q.time += dt;
       if (q.frames === 90) {
-        if (q.time / q.frames > 1 / 40) onSlow(Math.max(1, Math.min(devicePixelRatio, 2), SIZES[++q.step]));
+        if (q.time / q.frames > 1 / 40) {
+          const next = sizes[++q.step];
+          onSlow(coarse ? Math.min(devicePixelRatio, next) : Math.max(1, Math.min(devicePixelRatio, 2), next));
+        }
         q.frames = 0;
         q.time = 0;
       }
@@ -697,7 +706,7 @@ export default function StreetScene(props: { state: RefObject<StreetState>; loca
   const { state } = props;
   // The render size lives here, not only inside three.js: the canvas puts back whatever size it is given each
   // time this component renders, which would undo a step down.
-  const [dpr, setDpr] = useState<number | [number, number]>(() => (matchMedia('(pointer: coarse)').matches ? [1, 1.5] : 2));
+  const [dpr, setDpr] = useState(firstSize);
   const [town, setTown] = useState<World>();
   useEffect(() => {
     let alive = true;
