@@ -59,8 +59,8 @@ export const experience: Role[] = [
         en: 'Built the sales back office: quotes, subscriptions and invoicing for estate agencies.',
       },
       {
-        nl: 'Begeleidde samen met de tech lead de developers die na mij begonnen. Kreeg het team zover om met pull requests en code reviews te werken in plaats van rechtstreeks te committen.',
-        en: 'Onboarded and mentored the developers who joined after me, together with the tech lead. Got the team working with pull requests and code review instead of committing straight to main.',
+        nl: 'Begeleidde samen met de tech lead de developers die na mij begonnen. Voerde pull requests en code reviews in, in plaats van rechtstreeks op main te committen.',
+        en: 'Onboarded and mentored the developers who joined after me, together with the tech lead. Introduced pull requests and code review, instead of committing straight to main.',
       },
       {
         nl: 'Werkte aan Vlabel, de waarderingstool voor de Vlaamse Belastingdienst: transactiezoeker, vergelijkingspunten en het officiële waarderingsrapport.',
