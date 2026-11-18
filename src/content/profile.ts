@@ -78,10 +78,6 @@ export const experience: Role[] = [
         nl: 'Verhuisde de hele stack naar Docker op AWS ECS, met lagere AWS-kosten en snellere deploys als resultaat. Daarna de upgrade van PHP 7.4 naar 8.4.',
         en: 'Moved the whole stack to Docker on AWS ECS, which lowered AWS costs and sped up deploys. Then upgraded PHP from 7.4 to 8.4.',
       },
-      {
-        nl: 'Blokkeerde met AWS WAF de scrapers die de site overspoelden.',
-        en: 'Blocked the scrapers that were flooding the site, using AWS WAF.',
-      },
     ],
   },
   {
