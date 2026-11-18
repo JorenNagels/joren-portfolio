@@ -1,4 +1,4 @@
-# jorennagels.be: CV & portfolio
+# nagels.dev: CV & portfolio
 
 My website and CV, in **Dutch and English**, built from a single source.
 
@@ -32,8 +32,30 @@ only gets filled in when the CV is exported to PDF, outside this repo.
 
 ## Deploy
 
-`out/` is plain static HTML. Host it on S3 + CloudFront, GitHub Pages or Netlify. `/` picks NL or
-EN from the browser language.
+`out/` is plain static HTML. `/` picks NL or EN from the browser language.
+
+It runs on AWS (account `nagels-dev`), all defined in `infra/` (Terraform): a private S3 bucket
+behind CloudFront at https://nagels.dev, with a free ACM certificate and Route 53 DNS. A CloudFront
+Function maps `/nl/` to `nl/index.html` (S3 has no directory index) and redirects `www` and
+slash-less URLs.
+
+- **Push to `main`**: nothing is deployed.
+- **Push a tag `v1`, `v2`, ... made on main** (`git tag v3 && git push origin v3`): GitHub Actions
+  (`.github/workflows/deploy.yml`) runs `terraform apply`, builds the site and uploads `out/`, then
+  clears the CloudFront cache.
+- **Pull request touching `infra/`**: `plan.yml` shows the `terraform plan` in the run summary.
+
+GitHub signs in to AWS through OIDC (roles `github-deploy` for `v*` tags, read-only `github-plan` for PRs),
+so there are no AWS keys in the repo or in GitHub secrets.
+
+One-time setup, from your own machine (GitHub Actions can't create the role it signs in with):
+
+```bash
+aws sso login --sso-session jjco
+export AWS_PROFILE=nagels-dev
+infra/bootstrap.sh                       # creates the Terraform state bucket
+cd infra && terraform init && terraform apply
+```
 
 ## Credits
 
