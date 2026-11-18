@@ -4,7 +4,7 @@ import type Lenis from 'lenis';
 import dynamic from 'next/dynamic';
 import Link from 'next/link';
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { experience, languages, person, skills, summary } from '@/content/profile';
+import { experience, languages, person, skills, sport, summary } from '@/content/profile';
 import { projects } from '@/content/projects';
 import type { Locale } from '@/content/types';
 import { period, ui } from '@/content/ui';
@@ -375,6 +375,8 @@ function AboutPanel({ l }: { l: Locale }) {
       </dl>
       <h3 className="mt-8 text-sm font-semibold">{t.languages[l]}</h3>
       <p className="mt-2 text-[15px]">{languages.map((x) => `${x.name[l]} (${x.level[l]})`).join(', ')}</p>
+      <h3 className="mt-8 text-sm font-semibold">{ui.cv.interests[l]}</h3>
+      <p className="mt-2 text-[15px]">{sport[l]}</p>
       <Link href={`/${l}/cv/`} className="mt-8 inline-block underline">{ui.work.more[l]} →</Link>
     </article>
   );

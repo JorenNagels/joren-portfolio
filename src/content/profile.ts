@@ -21,8 +21,8 @@ export const intro: L = {
 };
 
 export const summary: L = {
-  nl: 'Full-stack developer uit Gent. Sinds 2021 werk ik aan Realo, een Belgisch vastgoedplatform: eerst aan de backoffice, nu leid ik de herbouw van de site in Next.js. Ik werk vooral in TypeScript, React en PHP, en help mee aan de AWS-kant. Naast mijn job bouw ik websites en apps voor kleine zaken.',
-  en: 'Full-stack developer from Ghent. I’ve worked on Realo, a Belgian property platform, since 2021: first on the back office, now leading its rewrite in Next.js. I work mostly in TypeScript, React and PHP, and help out on the AWS side. Outside work I build websites and apps for small businesses.',
+  nl: 'Full-stack developer uit Gent. Sinds 2021 werk ik aan Realo, een Belgisch vastgoedplatform. Ik werk vooral in TypeScript, React en PHP, en heb ook ervaring met AWS. Naast mijn job bouw ik websites en apps voor kleine zaken.',
+  en: 'Full-stack developer from Ghent. I’ve worked on Realo, a Belgian property platform, since 2021. I work mostly in TypeScript, React and PHP, and have experience with AWS too. Outside work I build websites and apps for small businesses.',
 };
 
 export const experience: Role[] = [
@@ -34,8 +34,8 @@ export const experience: Role[] = [
     start: '2026-04',
     highlights: [
       {
-        nl: 'Leid de herbouw van Realo van PHP naar Next.js, pagina per pagina naast de live site. De bèta staat sinds november 2026 online.',
-        en: 'Leading the rewrite of Realo from PHP to Next.js, page by page alongside the live site. The beta went live in November 2026.',
+        nl: 'Leidde de herbouw van Realo van PHP naar Next.js, pagina per pagina naast de live site. De bèta ging in november 2026 online.',
+        en: 'Led the rewrite of Realo from PHP to Next.js, page by page alongside the live site. The beta went live in November 2026.',
       },
       {
         nl: 'Verhuisde de login naar de nieuwe stack, met 2FA en passkeys, terwijl de PHP-site gewoon bleef draaien.',
@@ -131,6 +131,12 @@ export const languages: { name: L; level: L }[] = [
   { name: { nl: 'Nederlands', en: 'Dutch' }, level: { nl: 'moedertaal', en: 'native' } },
   { name: { nl: 'Engels', en: 'English' }, level: { nl: 'vloeiend', en: 'fluent' } },
 ];
+
+/** One line under "Outside work" on the About poster. */
+export const sport: L = {
+  nl: 'Ik speel volleybal in eerste nationale.',
+  en: 'I play volleyball in Belgium’s first national division.',
+};
 
 export const learning: L[] = [
   { nl: 'React Summit en JSNation, Amsterdam (2025, 2026)', en: 'React Summit and JSNation, Amsterdam (2025, 2026)' },
