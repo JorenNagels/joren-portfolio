@@ -1,0 +1,19 @@
+src/components/street/StreetScene.tsx
+  s_d7d0b773424b51::t_85752d7e618442 94-109,321-322,420-434,500,643-647,655-673
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "908d576c3c935149b57e6be0b38cab8816e351cd",
+  "prompts": {},
+  "sessions": {
+    "s_d7d0b773424b51": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_d7d0b773424b51",
+        "model": "unknown"
+      },
+      "human_author": "JorenNagels <joren.nagels@aviv-group.com>"
+    }
+  }
+}
