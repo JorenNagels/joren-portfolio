@@ -91,8 +91,22 @@ const SIZES = [2, 1.5, 1];
 // A phone starts at every pixel its screen has (three to the point on most) and steps down to two, then one and a
 // half, if frames run slow. Never below that: the picture is stretched to fit the screen, and on a phone, at one, the
 // ink lines and the title in the sky turn into staircases.
-const PHONE_SIZES = [3, 2, 1.5];
-const firstSize = () => (matchMedia('(pointer: coarse)').matches ? Math.min(devicePixelRatio, PHONE_SIZES[0]) : 2);
+/**
+ * Two to the point, not three. Three is four times the pixels of the one and a half this used to be, and the
+ * colour buffer, the normals and the depth are each that size again — on a phone with a browserful of tabs behind
+ * you there is not that much graphics memory to be had. It is not refused politely: the context goes, and Chrome
+ * draws a small sad face where the street was while the menu and the trip bar carry on as though nothing had
+ * happened. Two still clears the staircases that made one and a half worth leaving behind.
+ */
+const PHONE_SIZES = [2, 1.5];
+/** And a ceiling on the total, for the wide screens where even two to the point adds up. */
+const PHONE_PIXELS = 2.4e6;
+const fits = (ratio: number) => {
+  const px = innerWidth * innerHeight;
+  if (!(px > 0) || px * ratio * ratio <= PHONE_PIXELS) return ratio;
+  return Math.max(PHONE_SIZES[PHONE_SIZES.length - 1], Math.min(ratio, Math.sqrt(PHONE_PIXELS / px)));
+};
+const firstSize = () => (matchMedia('(pointer: coarse)').matches ? fits(Math.min(devicePixelRatio, PHONE_SIZES[0])) : 2);
 
 // How far the mouse's own look reaches: sideways, up and down (radians).
 const YAW = 0.85;
@@ -304,6 +318,8 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
     load.current = { ...load.current, frames: 0, time: 0, from: performance.now() + 3000 };
   }, [body]);
   const frame = useRef(0);
+  // The size of buffer last found to be usable, so the check below runs once a size rather than once a frame.
+  const checked = useRef('');
   // The first frame also compiles every shader and so takes long; from the second one the street is really there.
   const drawn = useRef(0);
   const sun = useRef<THREE.DirectionalLight>(null);
@@ -401,6 +417,21 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
     gl.shadowMap.autoUpdate = false;
   }, [scene, gl]);
 
+  // If the graphics card takes the context away — on a phone that nearly always means it was asked for more memory
+  // than it had to give — ask for less, so that whenever the browser does hand a context back there is a chance of
+  // keeping it. three.js already asks for it back (it calls preventDefault itself and reinstates everything on
+  // webglcontextrestored); what it cannot do is come back smaller, and the same size would only go the same way.
+  useEffect(() => {
+    const el = gl.domElement;
+    const lost = () => {
+      const sizes = coarse ? PHONE_SIZES : SIZES;
+      const next = sizes.find((s) => s < gl.getPixelRatio());
+      if (next !== undefined) onSlow(coarse ? fits(Math.min(devicePixelRatio, next)) : next);
+    };
+    el.addEventListener('webglcontextlost', lost);
+    return () => el.removeEventListener('webglcontextlost', lost);
+  }, [gl, coarse, onSlow]);
+
   // Two ways of looking, added together. `ty` is the gentle look the mouse's place on screen gives you, within
   // YAW either side of straight ahead. `turn` is which way you are facing, and a drag — with a finger or with
   // the mouse held down — swings it the whole way round, so you can look back down the river behind the boat.
@@ -466,7 +497,7 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
       if (q.frames === 90) {
         if (q.time / q.frames > 1 / 40) {
           const next = sizes[++q.step];
-          onSlow(coarse ? Math.min(devicePixelRatio, next) : Math.max(1, Math.min(devicePixelRatio, 2), next));
+          onSlow(coarse ? fits(Math.min(devicePixelRatio, next)) : Math.max(1, Math.min(devicePixelRatio, 2), next));
         }
         q.frames = 0;
         q.time = 0;
@@ -609,8 +640,11 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
       targets.color.setSize(v.buf.x, v.buf.y);
       targets.normal.setSize(v.buf.x, v.buf.y);
       // Drawn at double size for a screen with one pixel per point, the scaling down already smooths every edge:
-      // multisampling on top of that would be 16 samples a pixel.
-      const samples = coarse ? 2 : gl.getPixelRatio() >= 2 * devicePixelRatio ? 0 : 4;
+      // multisampling on top of that would be 16 samples a pixel. On a phone drawing two or three pixels to the
+      // point, an edge is already a fraction of a point wide and nobody can see the steps in it from reading
+      // distance — while the extra samples cost a whole screen of memory again, on the device least able to spare
+      // it. Below that the lines are coarse enough to be worth smoothing.
+      const samples = coarse ? (gl.getPixelRatio() >= 2 ? 0 : 2) : gl.getPixelRatio() >= 2 * devicePixelRatio ? 0 : 4;
       if (targets.color.samples !== samples) {
         targets.color.samples = samples;
         targets.color.dispose();
@@ -618,6 +652,25 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
     }
     for (const b of Object.values(boards)) b.mesh.visible = b.on;
     gl.setClearColor(0x000000, 0);
+    // Asking for buffers a phone has not got to give does not throw: the framebuffer simply comes back unusable and
+    // everything drawn into it goes nowhere, which on screen is a blank canvas with the menu and the trip bar still
+    // on top of it. Check the one the street is drawn into, once per size, and come back smaller if it is no good.
+    if (checked.current !== `${v.buf.x}x${v.buf.y}`) {
+      checked.current = `${v.buf.x}x${v.buf.y}`;
+      gl.setRenderTarget(targets.color);
+      const g = gl.getContext();
+      if (g.checkFramebufferStatus(g.FRAMEBUFFER) !== g.FRAMEBUFFER_COMPLETE) {
+        gl.setRenderTarget(null);
+        const sizes = coarse ? PHONE_SIZES : SIZES;
+        const next = sizes.find((s) => s < gl.getPixelRatio());
+        // Smaller buffers next time round; there is nothing worth drawing into these ones. At the smallest size
+        // there is nowhere left to go, so draw anyway rather than hold the loader up for ever.
+        if (next !== undefined) {
+          onSlow(coarse ? fits(Math.min(devicePixelRatio, next)) : next);
+          return;
+        }
+      }
+    }
     // Above 90 frames a second the shadows are redrawn every other frame; nobody sees a shadow a frame behind.
     gl.shadowMap.needsUpdate = dt > 1 / 90 || frame.current++ % 2 === 0;
     gl.setRenderTarget(targets.color);
