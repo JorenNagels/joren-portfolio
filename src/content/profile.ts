@@ -21,8 +21,8 @@ export const intro: L = {
 };
 
 export const summary: L = {
-  nl: 'Full-stack developer uit Gent. Sinds 2021 werk ik aan Realo, een Belgisch vastgoedplatform: eerst aan de backoffice, nu trek ik de herbouw in Next.js. Ik werk vooral in TypeScript, React en PHP, en neem ook de AWS-kant voor mijn rekening. Naast mijn job bouw ik websites en apps voor kleine zaken.',
-  en: 'Full-stack developer from Ghent. I’ve worked on Realo, a Belgian property platform, since 2021: first on the back office, now leading its rewrite in Next.js. I work mostly in TypeScript, React and PHP, and look after the AWS side too. Outside work I build websites and apps for small businesses.',
+  nl: 'Full-stack developer uit Gent. Sinds 2021 werk ik aan Realo, een Belgisch vastgoedplatform: eerst aan de backoffice, nu leid ik de herbouw van de site in Next.js. Ik werk vooral in TypeScript, React en PHP, en help mee aan de AWS-kant. Naast mijn job bouw ik websites en apps voor kleine zaken.',
+  en: 'Full-stack developer from Ghent. I’ve worked on Realo, a Belgian property platform, since 2021: first on the back office, now leading its rewrite in Next.js. I work mostly in TypeScript, React and PHP, and help out on the AWS side. Outside work I build websites and apps for small businesses.',
 };
 
 export const experience: Role[] = [
@@ -34,7 +34,7 @@ export const experience: Role[] = [
     start: '2026-04',
     highlights: [
       {
-        nl: 'Trek de herbouw van Realo van PHP naar Next.js, pagina per pagina naast de live site. De bèta staat sinds november 2026 online.',
+        nl: 'Leid de herbouw van Realo van PHP naar Next.js, pagina per pagina naast de live site. De bèta staat sinds november 2026 online.',
         en: 'Leading the rewrite of Realo from PHP to Next.js, page by page alongside the live site. The beta went live in November 2026.',
       },
       {
@@ -121,11 +121,10 @@ export const education: { school: string; program: L; start: string; end: string
 ];
 
 export const skills: { group: L; items: string }[] = [
-  { group: { nl: 'Talen', en: 'Languages' }, items: 'TypeScript, PHP, SQL, Python, Bash' },
-  { group: { nl: 'Frontend', en: 'Frontend' }, items: 'React, Next.js, Tailwind, TanStack, deck.gl, MapLibre' },
+  { group: { nl: 'Talen', en: 'Languages' }, items: 'TypeScript, PHP, SQL' },
+  { group: { nl: 'Frontend', en: 'Frontend' }, items: 'React, Next.js, Tailwind' },
   { group: { nl: 'Backend', en: 'Backend' }, items: 'Node.js, MySQL, Postgres, Redis, OpenSearch, DynamoDB' },
-  { group: { nl: 'Infra', en: 'Infra' }, items: 'AWS (ECS, Lambda, S3, CloudFront, SES, WAF), Terraform, CDK, SST, Docker, nginx, CircleCI, GitHub Actions' },
-  { group: { nl: 'Verder', en: 'Also' }, items: 'Vitest, Playwright, Sentry, passkeys, Claude Code' },
+  { group: { nl: 'Infra', en: 'Infra' }, items: 'AWS (ECS, Lambda, S3, CloudFront, SES, WAF), Docker, nginx, GitHub Actions' },
 ];
 
 export const languages: { name: L; level: L }[] = [
