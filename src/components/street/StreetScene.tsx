@@ -403,7 +403,9 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
   const look = useRef({ yaw: 0, pitch: 0, ty: 0, tp: 0, turn: 0, nx: 0, drag: null as null | { x: number; y: number } });
   useEffect(() => {
     const el = gl.domElement;
-    el.style.touchAction = 'pan-y'; // vertical swipes still scroll the page
+    // The boat sails itself on a touch screen, so the page underneath has nothing to scroll and every swipe,
+    // in any direction, is yours to look with. Nothing has to be shared between looking and travelling.
+    el.style.touchAction = coarse ? 'none' : 'pan-y';
     const clamp = (a: number) => Math.max(-TURN, Math.min(TURN, a));
     const follows = (e: PointerEvent) => e.pointerType === 'mouse' && !state.current.reduced;
     const down = (e: PointerEvent) => {
@@ -445,7 +447,7 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
       removeEventListener('pointerup', up);
       removeEventListener('pointercancel', up);
     };
-  }, [gl, state]);
+  }, [gl, state, coarse]);
 
   useFrame((_, dt) => {
     const s = state.current;
@@ -536,7 +538,9 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
     // --- Arriving from the loader: start where its houses were drawn, then swing round into the shot above.
     let fovNow = fov;
     let lift = 0;
-    const a = s.arrival;
+    // A measurement of nothing is not a shot to cut from (Street.tsx): belt and braces, so that no reading can
+    // ever put a NaN in the camera and take the whole town off the screen.
+    const a = s.arrival && s.arrival.m > 0 ? s.arrival : null;
     if (a) {
       const t = (performance.now() - a.at) / ARRIVE_MS;
       // The name waits high up while the camera swings round (it would fly straight through it), and is let down

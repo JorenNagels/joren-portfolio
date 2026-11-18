@@ -25,6 +25,10 @@ const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
 const INTRO = 0.08;
 const OUTRO = 0.9;
 
+// How long the whole trip takes when the boat sails itself, in seconds. Scroll is gone on a touch screen, so this
+// is the only thing setting the pace: long enough to look around at each poster, short enough to sit through.
+const SAIL = 80;
+
 // Where the boat should be to see each poster best: a few metres before it, with the head turned.
 const stops = STOPS.map((s) => ({ ...s, x: s.x - 8 }));
 
@@ -34,6 +38,10 @@ export function Street({ locale: l }: { locale: Locale }) {
   const state = useRef<StreetState>({ x: stops[0].x, intro: 0, outro: 0, p: 0, pointer: false, reduced: false, focus: null, arrival: null });
   const els = useRef<Record<string, HTMLElement | null>>({});
   const [webgl, setWebgl] = useState<boolean | null>(null);
+  const [coarse, setCoarse] = useState(false);
+  const [playing, setPlaying] = useState(true);
+  // on: the boat is sailing itself rather than being scrolled. t: how far into the trip we are, in seconds.
+  const sail = useRef({ on: false, t: 0, playing: true });
   const [active, setActive] = useState(true);
   const [open, setOpen] = useState<string | null>(null);
   const [current, setCurrent] = useState(stops[0].id);
@@ -48,12 +56,20 @@ export function Street({ locale: l }: { locale: Locale }) {
   const startBtn = useRef<HTMLButtonElement>(null);
   const start = useCallback(() => setStarted(true), []);
   const gate = ready && !started;
-  // The loader says where it drew the houses, so the 3D camera can start on the very same picture.
+  // The loader says where it drew the houses, so the 3D camera can start on the very same picture. It keeps
+  // measuring on every resize, which is right while it is still on screen — turn the phone and the match cut
+  // follows. Once it has handed over there is nothing left to match: its houses are no longer laid out, so a
+  // fresh measurement is zero. iOS fires a resize the moment its URL bar collapses on the first scroll, and
+  // re-arming the cut from that reading put the camera back in the arrival shot at (base - half) / 0, forever,
+  // because `at: Infinity` means hold the shot. A camera with a NaN in its matrix draws nothing at all.
+  const handedOver = useRef(false);
   const onMeasure = useCallback((m: number, base: number) => {
-    if (!state.current.reduced) state.current.arrival = { m, base, at: Infinity };
+    if (state.current.reduced || handedOver.current || !(m > 0)) return;
+    state.current.arrival = { m, base, at: Infinity };
   }, []);
   const onShown = useCallback(() => {
     setShown(true);
+    handedOver.current = true;
     // the swing starts once the drawn houses have dissolved into the real ones
     if (state.current.arrival) state.current.arrival.at = performance.now() + 1100;
   }, []);
@@ -101,6 +117,9 @@ export function Street({ locale: l }: { locale: Locale }) {
     // the same chunk next/dynamic loads below: this only tells the loader when it is in
     if (ok) import('./StreetScene').then(() => setBuilt(true));
     state.current.reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const c = matchMedia('(pointer: coarse)').matches;
+    setCoarse(c);
+    sail.current.on = c;
   }, []);
 
   useEffect(() => {
@@ -111,13 +130,22 @@ export function Street({ locale: l }: { locale: Locale }) {
     // Only touch the page's styles when something moved: writing them every frame makes the browser redo the
     // style and repaint the sky behind the canvas, even when nobody is scrolling.
     let drawn: { p: number; focus: string | null } | null = null;
-    const tick = () => {
+    const tick = (_time: number, dt: number) => {
       const el = root.current;
       const st = stage.current;
       if (!el || !st) return;
-      const r = el.getBoundingClientRect();
-      const p = clamp01(-r.top / (r.height - innerHeight));
       const s = state.current;
+      let p: number;
+      if (sail.current.on) {
+        // The trip runs on its own clock, and that clock starts when the visitor steps aboard — not while they are
+        // still looking at the loader. It holds while you are reading a poster too, so the river does not carry on
+        // without you.
+        if (sail.current.playing && handedOver.current && !s.focus) sail.current.t = Math.min(SAIL, sail.current.t + dt);
+        p = clamp01(sail.current.t / SAIL);
+      } else {
+        const r = el.getBoundingClientRect();
+        p = clamp01(-r.top / (r.height - innerHeight));
+      }
       if (drawn && drawn.p === p && drawn.focus === s.focus) return;
       drawn = { p, focus: s.focus };
       s.p = p;
@@ -137,15 +165,22 @@ export function Street({ locale: l }: { locale: Locale }) {
         x.style.visibility = o < 0.01 ? 'hidden' : 'visible';
       };
       const focus = s.focus ? 0 : 1;
-      show('nav', clamp01((s.intro - 0.7) / 0.3) * (1 - clamp01(s.outro / 0.4)) * focus);
+      // When scrolling drives the trip you can always scroll back, so the bar bows out for the closing shot.
+      // When the boat sails itself the bar is the only way back, so it stays up at the mooring.
+      const ending = sail.current.on ? 1 : 1 - clamp01(s.outro / 0.4);
+      show('nav', clamp01((s.intro - 0.7) / 0.3) * ending * focus);
       show('hint', clamp01((s.intro - 0.8) / 0.2) * (1 - clamp01((s.x - stops[0].x + 2) / 6)) * focus);
       show('end', clamp01((s.outro - 0.55) / 0.4));
 
+      // The stop you are at or have just gone by, never one still ahead. Nearest-stop flipped at the midpoint
+      // between two posters, so from halfway the bar named — and lit — a poster you had not reached yet.
       let near = stops[0].id;
-      for (const st2 of stops) if (Math.abs(st2.x - s.x) < Math.abs(stops.find((q) => q.id === near)!.x - s.x)) near = st2.id;
+      // Half a metre of slack: the boat's position is read back off a table in steps of 0.1 m, so landing exactly
+      // on a stop can come out a hair short and leave the name a poster behind.
+      for (const st2 of stops) if (s.x >= st2.x - 0.6) near = st2.id;
       if (near !== last) setCurrent((last = near));
     };
-    tick();
+    tick(0, 0);
     const off = onFrame(tick, 1);
     return () => {
       off();
@@ -214,6 +249,10 @@ export function Street({ locale: l }: { locale: Locale }) {
   const goTo = (id: string) => {
     const el = root.current!;
     const x = stops.find((s) => s.id === id)!.x;
+    if (sail.current.on) {
+      sail.current.t = progressAtX(x) * SAIL;
+      return;
+    }
     const y = el.offsetTop + progressAtX(x) * (el.offsetHeight - innerHeight);
     if (lenis()) lenis()!.scrollTo(y, { duration: 1.8 });
     else scrollTo({ top: y, behavior: 'smooth' });
@@ -223,7 +262,7 @@ export function Street({ locale: l }: { locale: Locale }) {
   const idx = stops.findIndex((s) => s.id === current);
 
   return (
-    <section ref={root} className="relative h-[1000vh]" aria-label={person.name}>
+    <section ref={root} className={`relative ${coarse ? 'h-dvh' : 'h-[1000vh]'}`} aria-label={person.name}>
       <div ref={stage} className="sticky top-0 h-dvh overflow-hidden text-[var(--fg)]" style={{ background: 'linear-gradient(to bottom, rgb(118,196,186), rgb(238,232,210) 62%)', ['--fg' as string]: '#25262f' }}>
         <div className={`absolute inset-0 transition-opacity duration-500 ease-out ${shown ? 'opacity-100' : 'opacity-0'}`}>
           {webgl && <StreetScene state={state} locale={l} active={active} onOpen={openStop} onReady={onReady} />}
@@ -267,6 +306,28 @@ export function Street({ locale: l }: { locale: Locale }) {
 
         {/* Where you are on the street */}
         <nav ref={(x) => { els.current.nav = x; }} aria-label={t.stops[l]} className="invisible absolute inset-x-0 bottom-4 flex justify-center px-4 sm:bottom-6" style={{ opacity: 0 }}>
+          {coarse ? (
+            <Journey
+              stops={stops}
+              at={progressAtX}
+              current={current}
+              label={labelOf(current, l)}
+              sail={sail}
+              playing={playing}
+              onToggle={() => {
+                // At the mooring the button offers the trip again; a pause there would do nothing.
+                if (sail.current.t >= SAIL) {
+                  sail.current.t = 0;
+                  sail.current.playing = true;
+                  setPlaying(true);
+                  return;
+                }
+                sail.current.playing = !sail.current.playing;
+                setPlaying(sail.current.playing);
+              }}
+              onOpen={() => openStop(current)}
+            />
+          ) : (
           <div className="flex max-w-full items-center gap-1 rounded-full bg-[#f4f0e4]/90 p-1 text-sm text-[#25262f] shadow-[0_2px_0_#25262f] ring-[1.5px] ring-[#25262f] backdrop-blur">
             <button type="button" className="rounded-full px-3 py-1.5 hover:bg-black/5 disabled:opacity-30" disabled={idx <= 0} onClick={() => goTo(stops[idx - 1].id)} aria-label="←">←</button>
             <ul className="hidden items-center gap-0.5 lg:flex">
@@ -283,6 +344,7 @@ export function Street({ locale: l }: { locale: Locale }) {
             </button>
             <button type="button" className="rounded-full px-3 py-1.5 hover:bg-black/5 disabled:opacity-30" disabled={idx >= stops.length - 1} onClick={() => goTo(stops[idx + 1].id)} aria-label="→">→</button>
           </div>
+          )}
         </nav>
 
         {/* The end: the thanks hang in the night sky (skyBoard.ts); the links to follow it stay on the page */}
@@ -326,6 +388,121 @@ function Mark({ name }: { name: keyof typeof MARKS }) {
     <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true" focusable="false" className="block">
       <path d={MARKS[name]} />
     </svg>
+  );
+}
+
+/**
+ * The trip, as a stretch of river you can take hold of. The boat slides along it on its own, the dots are the
+ * posters in the order you pass them, and dragging anywhere on it moves the trip — on, or back past something you
+ * want a second look at. Stopping is a button rather than a gesture: a thing you are allowed to stop should look
+ * stoppable, and a lone round button floating over the deck did not.
+ */
+function Journey({ stops, at, current, label, sail, playing, onToggle, onOpen }: {
+  stops: { id: string; x: number }[];
+  at: (x: number) => number;
+  current: string;
+  label: string;
+  sail: React.RefObject<{ on: boolean; t: number; playing: boolean }>;
+  playing: boolean;
+  onToggle: () => void;
+  onOpen: () => void;
+}) {
+  const [ended, setEnded] = useState(false);
+  const track = useRef<HTMLDivElement>(null);
+  const fill = useRef<HTMLDivElement>(null);
+  const boat = useRef<HTMLSpanElement>(null);
+  // null when nobody is dragging; otherwise whether the trip was under way when the finger went down.
+  const held = useRef<boolean | null>(null);
+
+  useEffect(() => {
+    // The boat moves every frame. React does not need to hear about it: the style goes straight on.
+    return onFrame(() => {
+      const f = clamp01(sail.current.t / SAIL);
+      if (fill.current) fill.current.style.width = `${f * 100}%`;
+      if (boat.current) boat.current.style.left = `${f * 100}%`;
+      // A dot is filled once the boat is level with it, read off the same number that places the boat, so the
+      // two can never disagree about where you are.
+      const t = track.current;
+      // The same half-metre of slack the name gets, so the dot fills on the stroke the chip changes rather than
+      // a sub-pixel later.
+      if (t) for (const dot of t.querySelectorAll<HTMLElement>('[data-at]')) dot.style.background = Number(dot.dataset.at) <= f + 0.005 ? '#25262f' : '#f4f0e4';
+      // Same value every frame until it really changes, and React drops the re-render.
+      setEnded((was) => (was === f >= 1 ? was : f >= 1));
+    }, 1);
+  }, [sail]);
+
+  const seek = (e: React.PointerEvent) => {
+    const el = track.current;
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    sail.current.t = clamp01((e.clientX - r.left) / r.width) * SAIL;
+  };
+  const down = (e: React.PointerEvent) => {
+    held.current = sail.current.playing;
+    sail.current.playing = false; // the river holds still while a finger is on it
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+    seek(e);
+  };
+  const move = (e: React.PointerEvent) => {
+    if (held.current !== null) seek(e);
+  };
+  const up = () => {
+    if (held.current === null) return;
+    sail.current.playing = held.current;
+    held.current = null;
+  };
+
+  return (
+    <div className="w-full max-w-sm">
+      <button type="button" onClick={onOpen} className="mx-auto mb-2 block rounded-full bg-[#25262f] px-4 py-1.5 text-sm text-[#f4f0e4] shadow-[0_2px_0_rgba(0,0,0,.25)]">
+        {label}
+      </button>
+      <div className="flex items-center gap-2 rounded-full bg-[#f4f0e4]/95 p-2 text-[#25262f] shadow-[0_2px_0_#25262f] ring-[1.5px] ring-[#25262f] backdrop-blur">
+        <button
+          type="button"
+          onClick={onToggle}
+          aria-label={ended ? 'Sail it again' : playing ? 'Pause the trip' : 'Carry on'}
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-[#25262f] text-[#f4f0e4] active:scale-95"
+        >
+          {ended ? (
+            <svg width="16" height="16" viewBox="0 0 18 18" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden>
+              <path d="M2.6 9a6.4 6.4 0 1 0 1.9-4.5" />
+              <path d="M2 1.6v3.6h3.6" />
+            </svg>
+          ) : (
+            <svg width="15" height="15" viewBox="0 0 18 18" fill="currentColor" aria-hidden>
+              {playing ? <path d="M3 1h4v16H3zM11 1h4v16h-4z" /> : <path d="M3 1l13 8-13 8z" />}
+            </svg>
+          )}
+        </button>
+        <div
+          ref={track}
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={up}
+          onPointerCancel={up}
+          className="relative mx-3 h-9 flex-1 cursor-pointer touch-none"
+          role="presentation"
+        >
+          <span className="absolute inset-x-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-[#25262f]/15" />
+          <span ref={fill} className="absolute left-0 top-1/2 h-1.5 -translate-y-1/2 rounded-full bg-[#76c4ba]" style={{ width: '0%' }} />
+          {stops.map((s) => (
+            <span
+              key={s.id}
+              data-at={at(s.x)}
+              className="absolute top-1/2 h-2 w-2 -translate-x-1/2 -translate-y-1/2 rounded-full bg-[#f4f0e4] ring-[1.5px] ring-[#25262f]"
+              style={{ left: `${at(s.x) * 100}%` }}
+            />
+          ))}
+          <span ref={boat} className="pointer-events-none absolute top-1/2 -translate-x-1/2 -translate-y-1/2" style={{ left: '0%' }}>
+            <svg width="22" height="16" viewBox="0 0 26 18" aria-hidden className="drop-shadow-[0_1px_0_rgba(37,38,47,.5)]">
+              <path d="M3 10h20l-3 5H6z" fill="#f4f0e4" stroke="#25262f" strokeWidth="1.6" strokeLinejoin="round" />
+              <path d="M13 10V2l6 5h-6" fill="#e07a5f" stroke="#25262f" strokeWidth="1.6" strokeLinejoin="round" />
+            </svg>
+          </span>
+        </div>
+      </div>
+    </div>
   );
 }
 
