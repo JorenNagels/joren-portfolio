@@ -34,20 +34,16 @@ export const experience: Role[] = [
     start: '2026-04',
     highlights: [
       {
-        nl: 'Leidde de herbouw van Realo van PHP naar Next.js, pagina per pagina naast de live site. De bèta ging in november 2026 online.',
-        en: 'Led the rewrite of Realo from PHP to Next.js, page by page alongside the live site. The beta went live in November 2026.',
+        nl: 'Leidde de herbouw van Realo van PHP naar Next.js, pagina per pagina naast de live site. Zette de nieuwe codebase agent-first op: van bij de start gebouwd met Claude Code, met docs en skills voor AI-agents.',
+        en: 'Led the rewrite of Realo from PHP to Next.js, page by page alongside the live site. Set up the new codebase agent-first: built with Claude Code from the start, with docs and skills for AI agents.',
       },
       {
         nl: 'Verhuisde de login naar de nieuwe stack, met 2FA en passkeys, terwijl de PHP-site gewoon bleef draaien.',
         en: 'Moved login to the new stack, including 2FA and passkeys, while the PHP site kept running.',
       },
       {
-        nl: 'Bouwde de zoek- en kaartpagina’s op OpenSearch en deck.gl.',
-        en: 'Built the search and map pages on OpenSearch and deck.gl.',
-      },
-      {
-        nl: 'Bracht Claude Code in het team. Mijn PR-review-setup wordt nu in heel AVIV gedeeld.',
-        en: 'Introduced Claude Code to the team. My PR-review setup is now shared across AVIV.',
+        nl: 'Een van de eersten in het bedrijf die Claude Code dagelijks gebruikte en nieuwe features uitprobeerde. Bracht het in het team, schreef gedeelde skills en hielp collega’s op weg.',
+        en: 'One of the first in the company to use Claude Code daily and try out new features. Brought it into the team, wrote shared skills and helped colleagues get started.',
       },
     ],
   },
