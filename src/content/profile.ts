@@ -71,8 +71,8 @@ export const experience: Role[] = [
         en: 'Worked on Vlabel, the valuation tool for the Flemish Tax Administration: transaction search, comparison points and the official valuation report.',
       },
       {
-        nl: 'Bouwde waarderingsrapporten voor vastgoedkantoren, onder meer voor ERA, en een white-label versie voor Logic-Immo.',
-        en: 'Built valuation reports for estate agencies, including ERA’s, and a white-label version for Logic-Immo.',
+        nl: 'Bouwde waarderingsrapporten voor vastgoedkantoren, ook als white-label versie.',
+        en: 'Built valuation reports for estate agencies, including white-label versions.',
       },
       {
         nl: 'Bouwde bewaarde zoekopdrachten voor kantoren: nieuwe panden die matchen komen als lead in hun CRM.',

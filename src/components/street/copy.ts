@@ -17,7 +17,7 @@ export const streetCopy = {
   stops: { nl: 'Huizen langs de Leie', en: 'Houses along the Leie' },
   endTitle: { nl: 'Bedankt voor de boottocht.', en: 'Thanks for the boat trip.' },
   endText: { nl: 'Mail me, of vind me hier:', en: 'Email me, or find me here:' },
-  highlights: { nl: 'Wat ik er deed', en: 'What I did there' },
+  highlights: { nl: 'Een paar dingen die ik er deed', en: 'Some things I did there' },
   skills: { nl: 'Waar ik mee werk', en: 'What I work with' },
   languages: { nl: 'Talen', en: 'Languages' },
 } satisfies Record<string, L>;
