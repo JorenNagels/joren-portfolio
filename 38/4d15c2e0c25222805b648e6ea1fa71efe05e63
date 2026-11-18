@@ -1,0 +1,21 @@
+infra/github.tf
+  s_e4d28d28726d1f::t_3ef5769fecf380 14,19
+infra/variables.tf
+  s_e4d28d28726d1f::t_046ca3dd323ebc 12-18,20
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "384d15c2e0c25222805b648e6ea1fa71efe05e63",
+  "prompts": {},
+  "sessions": {
+    "s_e4d28d28726d1f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_e4d28d28726d1f",
+        "model": "unknown"
+      },
+      "human_author": "JorenNagels <joren.nagels@aviv-group.com>"
+    }
+  }
+}
