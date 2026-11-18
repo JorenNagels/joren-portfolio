@@ -1,5 +1,6 @@
 import Link from 'next/link';
 import { LangSwitch } from '@/components/LangSwitch';
+import { Debug } from '@/components/Debug';
 import { Motion } from '@/components/Motion';
 import { Music } from '@/components/Music';
 import { streetCopy } from '@/components/street/copy';
@@ -14,6 +15,8 @@ export default async function Home({ params }: { params: Promise<{ locale: Local
 
   return (
     <>
+      {/* only with ?debug=1 in the address, for working out what a phone we cannot reach is doing */}
+      <Debug />
       <Motion />
       <header className="fixed inset-x-0 top-0 z-50 flex h-16 items-center justify-end px-4 text-sm sm:px-8">
         <nav className="nav-plate relative flex items-center gap-5 rounded-full border border-white/15 bg-black/50 px-4 py-2 text-white shadow-[0_2px_14px_rgba(0,0,0,0.35)] backdrop-blur-md">
