@@ -1,0 +1,16 @@
+src/app/globals.css
+  h_86d98dfb082589 311-316
+src/components/street/Street.tsx
+  h_86d98dfb082589 47-49,142-146,239,245,247-252,256-258,262-265,527-532,534-537,539-568,572-576,578-582,588-608,617-619,643-645,660-662,665
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c9322eb2637016458de9a3e3194d60a62d1a9fce",
+  "prompts": {},
+  "humans": {
+    "h_86d98dfb082589": {
+      "author": "JorenNagels <joren.nagels@aviv-group.com>"
+    }
+  }
+}
