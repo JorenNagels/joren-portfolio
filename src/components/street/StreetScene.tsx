@@ -115,6 +115,12 @@ const PITCH_DOWN = 0.12;
 // How far a drag can turn you: the whole way round, so you can watch the street you have already passed.
 const TURN = Math.PI;
 const TURN_SPEED = 0.0055; // radians a pixel dragged
+// Pinching on a touch screen narrows the camera's view rather than enlarging the page, so the header and the
+// buttons stay the size they are and only the town comes closer: close enough to read a poster from the boat.
+const ZOOM_MAX = 4;
+// How far a finger can tilt the view, down to the water and up to the rooftops (radians).
+const TOUCH_PITCH_UP = 0.4;
+const TOUCH_PITCH_DOWN = 0.25;
 
 const toonCache = new Map<string, THREE.MeshToonMaterial>();
 function toon(color: string) {
@@ -435,23 +441,50 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
   // Two ways of looking, added together. `ty` is the gentle look the mouse's place on screen gives you, within
   // YAW either side of straight ahead. `turn` is which way you are facing, and a drag — with a finger or with
   // the mouse held down — swings it the whole way round, so you can look back down the river behind the boat.
-  const look = useRef({ yaw: 0, pitch: 0, ty: 0, tp: 0, turn: 0, nx: 0, drag: null as null | { x: number; y: number } });
+  // `zoom` is where two fingers have pinched the view to, `z` the zoom the camera has eased to.
+  const look = useRef({ yaw: 0, pitch: 0, ty: 0, tp: 0, turn: 0, nx: 0, zoom: 1, z: 1, drag: null as null | { x: number; y: number } });
   useEffect(() => {
     const el = gl.domElement;
     // The boat sails itself on a touch screen, so the page underneath has nothing to scroll and every swipe,
-    // in any direction, is yours to look with. Nothing has to be shared between looking and travelling.
+    // in any direction, is yours to look with, and every pinch is yours to zoom with. Nothing has to be shared
+    // between looking and travelling, and the browser zooming the whole page (header and all) is not wanted.
     el.style.touchAction = coarse ? 'none' : 'pan-y';
     const clamp = (a: number) => Math.max(-TURN, Math.min(TURN, a));
     const follows = (e: PointerEvent) => e.pointerType === 'mouse' && !state.current.reduced;
+    const fingers = new Map<number, { x: number; y: number }>();
+    let pinch: { d: number; zoom: number } | null = null;
+    const spread = () => {
+      const [a, b] = [...fingers.values()];
+      return Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
+    };
     const down = (e: PointerEvent) => {
       if (state.current.focus) return;
+      if (e.pointerType === 'touch') {
+        fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
+        if (fingers.size >= 2) {
+          // A second finger turns the swipe into a pinch: stop turning, and zoom from where the view is now.
+          look.current.drag = null;
+          if (!pinch) pinch = { d: spread(), zoom: look.current.zoom };
+          return;
+        }
+      }
       look.current.drag = { x: e.clientX, y: e.clientY };
     };
     const move = (e: PointerEvent) => {
       const L = look.current;
+      if (fingers.has(e.pointerId)) fingers.set(e.pointerId, { x: e.clientX, y: e.clientY });
       if (state.current.focus) return;
+      if (pinch && fingers.size >= 2) {
+        L.zoom = Math.max(1, Math.min(ZOOM_MAX, (pinch.zoom * spread()) / pinch.d));
+        return;
+      }
       if (L.drag) {
-        L.turn = clamp(L.turn + (e.clientX - L.drag.x) * TURN_SPEED);
+        // Zoomed in, the same swipe turns you less, so what is under your finger stays under it.
+        const speed = TURN_SPEED / L.z;
+        L.turn = clamp(L.turn + (e.clientX - L.drag.x) * speed);
+        // A finger tilts the view as well (the mouse does that by where it is), to look up a facade or down at
+        // the water.
+        if (e.pointerType === 'touch') L.tp = Math.max(-TOUCH_PITCH_DOWN, Math.min(TOUCH_PITCH_UP, L.tp + (e.clientY - L.drag.y) * speed));
         L.drag = { x: e.clientX, y: e.clientY };
       }
       if (!follows(e)) return;
@@ -462,8 +495,19 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
       // two pulling against each other.
       if (!L.drag) L.ty = -L.nx * YAW;
     };
-    const up = () => {
+    const up = (e: PointerEvent) => {
       const L = look.current;
+      fingers.delete(e.pointerId);
+      if (pinch) {
+        if (fingers.size >= 2) return;
+        pinch = null;
+        // Nearly all the way out is all the way out.
+        if (L.zoom < 1.1) L.zoom = 1;
+        // The finger still down carries on turning from where it is.
+        const [rest] = [...fingers.values()];
+        L.drag = rest ?? null;
+        return;
+      }
       if (!L.drag) return;
       L.drag = null;
       // Hand the view back to the mouse without it moving: where you ended up facing stays put, and the pointer
@@ -514,6 +558,9 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
     const k = 1 - Math.exp(-dt * 4.5);
     L.yaw += (L.turn + L.ty - L.yaw) * k;
     L.pitch += (L.tp - L.pitch) * k;
+    // Opening a poster brings you right up to it, so a pinch is let go of.
+    if (s.focus) L.zoom = 1;
+    L.z += (L.zoom - L.z) * (1 - Math.exp(-dt * 12));
     v.dir.set(1, 0, 0).applyAxisAngle(UP, L.yaw);
     v.dir.y = Math.tan(L.pitch) - 0.02;
     v.dir.normalize();
@@ -605,6 +652,11 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
     }
 
     boards.title.mesh.position.y = boards.title.y + lift;
+
+    // The pinch: a narrower view from the same place. It is a look from the boat, so it fades out as the camera
+    // leaves the boat, for the opening shot, a poster or the bridge.
+    const zoom = 1 + (L.z - 1) * s.intro * (1 - focus.current) * (1 - s.outro);
+    if (zoom > 1.001) fovNow = (2 * Math.atan(Math.tan((fovNow * Math.PI) / 360) / zoom) * 180) / Math.PI;
 
     const cam = camera as THREE.PerspectiveCamera;
     camera.position.copy(v.pos);

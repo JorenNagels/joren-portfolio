@@ -9,8 +9,8 @@ export const streetCopy = {
   start: { nl: 'Stap aan boord', en: 'Step aboard' },
   hint: { nl: 'Beweeg je muis om rond te kijken, sleep om je om te draaien. Klik op een affiche voor meer.', en: 'Move your mouse to look around, drag to turn right round. Click a poster to read more.' },
   hintTouch: {
-    nl: 'Veeg opzij om rond te kijken, ook naar achter. Sleep de rivier onderaan om terug te varen, of pauzeer de tocht.',
-    en: 'Swipe sideways to look around, behind you too. Drag the river below to go back, or pause the trip.',
+    nl: 'Veeg om rond te kijken, ook naar achter, en knijp om in te zoomen. Sleep de rivier onderaan om terug te varen, of pauzeer de tocht.',
+    en: 'Swipe to look around, behind you too, and pinch to zoom in. Drag the river below to go back, or pause the trip.',
   },
   hello: { nl: 'Hallo, ik ben', en: 'Hi, I’m' },
   about: { nl: 'Over mij', en: 'About me' },
