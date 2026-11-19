@@ -1,0 +1,25 @@
+src/components/Debug.tsx
+  s_bac159d633bef9::t_874afb92025a50 38-43,121-129,138-151,175-176
+src/components/street/Street.tsx
+  s_bac159d633bef9::t_f4e8cf36cc7a4e 41-43,59,133,202-226,313,316,318-320,322,328,332
+src/components/street/StreetScene.tsx
+  s_bac159d633bef9::t_8b3980e5622a18 16,271-279,320,433-434,437-449,452,455-466,731-737,762,846
+src/components/street/mark.ts
+  s_bac159d633bef9::t_2ed8db991531ae 1-18
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "73fd0da718e5a5263553b81d7a367ba85bac4184",
+  "prompts": {},
+  "sessions": {
+    "s_bac159d633bef9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_bac159d633bef9",
+        "model": "unknown"
+      },
+      "human_author": "JorenNagels <joren.nagels@aviv-group.com>"
+    }
+  }
+}
