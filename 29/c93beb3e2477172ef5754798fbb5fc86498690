@@ -1,0 +1,23 @@
+src/components/street/Gull.tsx
+  s_d3afd5b205c30f::t_3d7ef87c838110 1-412
+src/components/street/Street.tsx
+  s_d3afd5b205c30f::t_c2a67f2f59d530 274
+src/components/street/StreetScene.tsx
+  s_d3afd5b205c30f::t_c6ad386a255163 12,14,261-273,276,279-288,310-312,384-387,549-564,570-572,613-646,739,887-888
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "29c93beb3e2477172ef5754798fbb5fc86498690",
+  "prompts": {},
+  "sessions": {
+    "s_d3afd5b205c30f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_d3afd5b205c30f",
+        "model": "unknown"
+      },
+      "human_author": "JorenNagels <joren.nagels@aviv-group.com>"
+    }
+  }
+}
