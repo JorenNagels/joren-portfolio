@@ -308,6 +308,12 @@ html:not(.walk) .music {
 html.gated {
   overflow: hidden;
 }
+
+/* Reading a poster (street/Street.tsx): the street behind the panel is held still, so a scroll meant for the
+   panel — or one that runs off the end of it — cannot sail the boat on while you are still reading. */
+html.reading {
+  overflow: hidden;
+}
 .gate {
   animation: gate-in 650ms cubic-bezier(0.25, 1.45, 0.45, 1) both;
 }

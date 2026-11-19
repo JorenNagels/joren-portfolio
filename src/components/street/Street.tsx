@@ -44,6 +44,9 @@ export function Street({ locale: l }: { locale: Locale }) {
   const sail = useRef({ on: false, t: 0, playing: true });
   const [active, setActive] = useState(true);
   const [open, setOpen] = useState<string | null>(null);
+  // Where the trip stood when a poster was opened, and null the rest of the time. While it holds a number the
+  // boat does not move, so nothing that scrolls behind the panel can sail on without the reader.
+  const held = useRef<number | null>(null);
   const [current, setCurrent] = useState(stops[0].id);
   // Loading: the 3D code is in and the street built, then its first frame drawn, then the pop-up has folded away.
   const [built, setBuilt] = useState(false);
@@ -136,7 +139,11 @@ export function Street({ locale: l }: { locale: Locale }) {
       if (!el || !st) return;
       const s = state.current;
       let p: number;
-      if (sail.current.on) {
+      if (held.current !== null) {
+        // Reading a poster: the trip is pinned where it was. Whatever the page behind does with the scroll — a
+        // flick that got through, a key, a panel that reached its end and passed the rest on — the boat holds.
+        p = held.current;
+      } else if (sail.current.on) {
         // The trip runs on its own clock, and that clock starts when the visitor steps aboard — not while they are
         // still looking at the loader. It holds while you are reading a poster too, so the river does not carry on
         // without you.
@@ -229,20 +236,33 @@ export function Street({ locale: l }: { locale: Locale }) {
 
   const openStop = useCallback((id: string) => {
     state.current.focus = id;
+    held.current = state.current.p;
     setOpen(id);
     lenis()?.stop();
   }, []);
   const close = useCallback(() => {
     state.current.focus = null;
+    held.current = null;
     setOpen(null);
-    lenis()?.start();
+    const l = lenis();
+    if (!l) return;
+    // Take up whatever the smooth scroll was still gliding towards when the panel went up, so letting go of the
+    // poster leaves the boat where the reader left it instead of carrying on to an old target.
+    l.scrollTo(window.scrollY, { immediate: true, force: true });
+    l.start();
   }, []);
   useEffect(() => {
     if (!open) return;
+    // The page itself holds still too: smooth scrolling is only half of what can move it — a wheel over the
+    // street, a flick that chains out of the panel, the arrow keys — and all of them run through the scrollport.
+    document.documentElement.classList.add('reading');
     const key = (e: KeyboardEvent) => e.key === 'Escape' && close();
     addEventListener('keydown', key);
     document.getElementById('panel-close')?.focus();
-    return () => removeEventListener('keydown', key);
+    return () => {
+      document.documentElement.classList.remove('reading');
+      removeEventListener('keydown', key);
+    };
   }, [open, close]);
 
   const goTo = (id: string) => {
@@ -504,26 +524,88 @@ function Journey({ stops, at, current, label, sail, playing, onToggle, onOpen }:
 
 function Panel({ id, l, onClose }: { id: string | null; l: Locale; onClose: () => void }) {
   const [shown, setShown] = useState<string | null>(id);
+  const sheet = useRef<HTMLElement>(null);
+  // Whether the story has been pushed up under the bar, which is the only time the bar needs to cast a shadow.
+  const [under, setUnder] = useState(false);
+  // Every poster opens at its own first line. The panel is one element that swaps its contents, so without this
+  // the second poster you open starts wherever you had scrolled to in the first — halfway down someone else's
+  // story, with the title off the top. It runs while the sheet is still off screen, so nothing is seen jumping.
   useEffect(() => {
-    if (id) setShown(id);
+    if (!id) return;
+    setShown(id);
+    setUnder(false);
+    if (sheet.current) sheet.current.scrollTop = 0;
   }, [id]);
+
+  // On a phone the panel is a sheet, and a sheet you can pull down on. The drag lives on the header — the bar
+  // with the grip and the close button — so it never fights the reading underneath it.
+  const drag = useRef<{ y: number; at: number } | null>(null);
+  const dragTo = (dy: number) => {
+    const el = sheet.current;
+    if (el) el.style.transform = dy > 0 ? `translateY(${dy}px)` : '';
+  };
+  const down = (e: React.PointerEvent) => {
+    if (!sheet.current || matchMedia('(min-width: 640px)').matches) return;
+    if ((e.target as Element).closest('button')) return;
+    drag.current = { y: e.clientY, at: performance.now() };
+    sheet.current.style.transition = 'none';
+    e.currentTarget.setPointerCapture(e.pointerId);
+  };
+  const move = (e: React.PointerEvent) => {
+    if (drag.current) dragTo(e.clientY - drag.current.y);
+  };
+  const up = (e: React.PointerEvent) => {
+    const d = drag.current;
+    const el = sheet.current;
+    if (!d || !el) return;
+    drag.current = null;
+    el.style.transition = '';
+    el.style.transform = '';
+    const dy = e.clientY - d.y;
+    // far enough down, or a quick flick: let it go. Otherwise it springs back on its own transition.
+    if (dy > 110 || dy / Math.max(1, performance.now() - d.at) > 0.5) onClose();
+  };
+
   const kind = shown ? kindOf(shown) : null;
   return (
     <>
-      <div className={`absolute inset-0 ${id ? '' : 'pointer-events-none'}`} onClick={onClose} aria-hidden />
+      <div
+        className={`absolute inset-0 bg-[#25262f]/35 transition-opacity duration-500 sm:bg-transparent ${id ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        onClick={onClose}
+        aria-hidden
+      />
       <aside
-        className={`absolute inset-x-0 bottom-0 max-h-[60dvh] overflow-y-auto rounded-t-2xl bg-[#f4f0e4] p-6 text-[#25262f] ring-[1.5px] ring-[#25262f] transition-transform duration-700 ease-[cubic-bezier(.2,.8,.2,1)] sm:inset-x-auto sm:bottom-4 sm:right-4 sm:top-16 sm:max-h-none sm:w-[min(500px,42vw)] sm:rounded-2xl sm:p-9 sm:shadow-[4px_4px_0_#25262f] ${
+        ref={sheet}
+        onScroll={(e) => setUnder(e.currentTarget.scrollTop > 4)}
+        // svh, not dvh: the small viewport is a fixed number, so the sheet keeps its height while Safari's bars
+        // slide in and out. On dvh it grew and shrank under your thumb as you read.
+        className={`absolute inset-x-0 bottom-0 max-h-[82svh] overflow-y-auto overscroll-contain rounded-t-[1.75rem] bg-[#f4f0e4] text-[#25262f] ring-[1.5px] ring-[#25262f] transition-transform duration-700 ease-[cubic-bezier(.2,.8,.2,1)] sm:inset-x-auto sm:bottom-4 sm:right-4 sm:top-16 sm:max-h-none sm:w-[min(500px,42vw)] sm:rounded-2xl sm:shadow-[4px_4px_0_#25262f] ${
           id ? 'translate-y-0 sm:translate-x-0' : 'translate-y-[110%] sm:translate-x-[115%] sm:translate-y-0'
         }`}
         aria-hidden={!id}
         data-lenis-prevent
       >
-        <button id="panel-close" type="button" onClick={onClose} className="float-right -mr-2 -mt-2 rounded-full px-3 py-1 text-sm ring-[1.5px] ring-[#25262f] hover:bg-black/5">
-          {t.close[l]} ✕
-        </button>
-        {kind === 'about' && <AboutPanel l={l} />}
-        {kind === 'work' && <WorkPanel id={shown!} l={l} />}
-        {kind === 'project' && <ProjectPanel id={shown!} l={l} />}
+        {/* The grip and the way out, pinned to the top of the sheet. It carries the sheet's own colour, so the
+            story slides away behind it rather than being cut off in a line under the button. */}
+        <header
+          onPointerDown={down}
+          onPointerMove={move}
+          onPointerUp={up}
+          onPointerCancel={up}
+          className={`sticky top-0 z-10 flex touch-none select-none items-center justify-end bg-[#f4f0e4] px-5 pb-2 pt-3 transition-shadow duration-200 sm:px-9 sm:pb-3 sm:pt-7 ${
+            under ? 'shadow-[0_10px_12px_-10px_rgba(37,38,47,.4)]' : ''
+          }`}
+        >
+          <span className="absolute left-1/2 top-2.5 h-1 w-10 -translate-x-1/2 rounded-full bg-[#25262f]/25 sm:hidden" aria-hidden />
+          <button id="panel-close" type="button" onClick={onClose} className="relative -mr-1 rounded-full bg-[#f4f0e4] px-3 py-1.5 text-sm ring-[1.5px] ring-[#25262f] hover:bg-black/5 active:bg-black/10 sm:mr-0 sm:py-1">
+            {t.close[l]} ✕
+          </button>
+        </header>
+        <div className="px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-9 sm:pb-9">
+          {kind === 'about' && <AboutPanel l={l} />}
+          {kind === 'work' && <WorkPanel id={shown!} l={l} />}
+          {kind === 'project' && <ProjectPanel id={shown!} l={l} />}
+        </div>
       </aside>
     </>
   );
@@ -532,9 +614,9 @@ function Panel({ id, l, onClose }: { id: string | null; l: Locale; onClose: () =
 function AboutPanel({ l }: { l: Locale }) {
   return (
     <article>
-      <img src={person.photo} alt={person.name} className="h-20 w-20 rounded-full object-cover ring-[1.5px] ring-[#25262f]" style={{ objectPosition: '50% 25%' }} />
-      <h2 className="mt-5 text-5xl font-semibold tracking-[-0.04em]">{person.name}</h2>
-      <p className="mt-5 leading-relaxed">{summary[l]}</p>
+      <img src={person.photo} alt={person.name} className="h-16 w-16 rounded-full object-cover ring-[1.5px] ring-[#25262f] sm:h-20 sm:w-20" style={{ objectPosition: '50% 25%' }} />
+      <h2 className="mt-4 text-[2.25rem] font-semibold leading-[1.05] tracking-[-0.04em] sm:mt-5 sm:text-5xl">{person.name}</h2>
+      <p className="mt-4 leading-relaxed sm:mt-5">{summary[l]}</p>
       <h3 className="mt-8 text-sm font-semibold">{t.skills[l]}</h3>
       <dl className="mt-2 space-y-2 text-[15px]">
         {skills.map((s) => (
@@ -558,9 +640,9 @@ function WorkPanel({ id, l }: { id: string; l: Locale }) {
   return (
     <article>
       <p className="text-sm text-[#76736a]">{period(r.start, r.end, l)}</p>
-      <h2 className="mt-3 text-5xl font-semibold tracking-[-0.04em]">{r.company}</h2>
-      <p className="mt-2 text-lg">{r.title[l]}</p>
-      <h3 className="mt-8 text-sm font-semibold">{t.highlights[l]}</h3>
+      <h2 className="mt-2 text-[2.25rem] font-semibold leading-[1.05] tracking-[-0.04em] sm:mt-3 sm:text-5xl">{r.company}</h2>
+      <p className="mt-1.5 text-lg sm:mt-2">{r.title[l]}</p>
+      <h3 className="mt-6 text-sm font-semibold sm:mt-8">{t.highlights[l]}</h3>
       <ul className="mt-3 space-y-4 leading-relaxed">
         {r.highlights.map((h) => (
           <li key={h.en} className="border-t border-black/10 pt-4">{h[l]}</li>
@@ -575,12 +657,12 @@ function ProjectPanel({ id, l }: { id: string; l: Locale }) {
   return (
     <article>
       <p className="text-sm text-[#76736a]">{p.kind[l]}, {p.year}</p>
-      <h2 className="mt-3 text-5xl font-semibold leading-[0.95] tracking-[-0.04em]">{p.name}</h2>
-      <p className="mt-4 text-xl font-medium leading-snug">{p.tagline[l]}</p>
-      <div className="mt-6 aspect-[16/10] overflow-hidden rounded-lg ring-[1.5px] ring-[#25262f]">
+      <h2 className="mt-2 text-[2.25rem] font-semibold leading-[1] tracking-[-0.04em] sm:mt-3 sm:text-5xl sm:leading-[0.95]">{p.name}</h2>
+      <p className="mt-3 text-lg font-medium leading-snug sm:mt-4 sm:text-xl">{p.tagline[l]}</p>
+      <div className="mt-5 aspect-[16/10] overflow-hidden rounded-lg ring-[1.5px] ring-[#25262f] sm:mt-6">
         {p.image ? <img src={p.image} alt="" className="h-full w-full object-cover object-top" /> : <BeatArt />}
       </div>
-      <div className="mt-6 space-y-3 leading-relaxed">
+      <div className="mt-5 space-y-3 leading-relaxed sm:mt-6">
         {p.story[l].split('\n\n').map((para) => <p key={para}>{para}</p>)}
       </div>
       {p.detail && (
