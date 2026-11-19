@@ -9,8 +9,9 @@ import { onFrame } from '@/lib/ticker';
 import { loadBody } from './actor';
 import type { Made } from './character';
 import { Crew } from './Crew';
+import { type Cue, Gull } from './Gull';
 import { cabinBoat, kayak, ownBoat, type Rider, rowBoat, sloep, tourBoat } from './folk';
-import { GRASLEI, RIDE, rowLength } from './plan';
+import { GRASLEI, RIDE, rowLength, STOPS } from './plan';
 import { BRIDGE, FAR, MAT, MIDSTREAM, palette, QUAY, RIVER, WATER } from './houses';
 import { People, Sitters } from './People';
 import { posterTexture } from './posters';
@@ -257,11 +258,34 @@ function Clouds() {
   );
 }
 
+/* ---------------- The camera goes with the gull ---------------- */
+
+// The gull (Gull.tsx) says where to look: at itself as it flies in across the river, then at the first poster where
+// it lands. The camera eases round to that, follows it a little behind (a bird darts; a camera should not), leans
+// in on the poster, and hands the view back. Any look of your own cuts it short: a mouse that wanders off, a drag,
+// a scroll.
+const FOLLOW_IN = 1.2; // seconds to ease into following, and to let go
+const FOLLOW_PUSH = 1; // how much of the gull's lean-in (Cue.push) the camera takes
+// The furthest it tilts up, in radians: the name hangs in the sky over the river ahead, so looking down the river
+// it barely tilts at all; turned towards the quays, it can look up to a poster.
+const FOLLOW_UP = { ahead: 0.03, aside: 0.1 };
+type Follow = { on: boolean; u: number; cut: boolean; moved: number; p: number; at: THREE.Vector3; push: number };
+
 /* ---------------- Posters ---------------- */
 
-function Posters({ street, locale, state, onOpen }: { street: World['street']; locale: Locale; state: RefObject<StreetState>; onOpen: (id: string) => void }) {
+function Posters({ street, locale, state, onOpen, hovered, cue }: { street: World['street']; locale: Locale; state: RefObject<StreetState>; onOpen: (id: string) => void; hovered: RefObject<string | null>; cue: RefObject<Cue> }) {
   const [tex, setTex] = useState<Record<string, THREE.Texture>>({});
   const [hover, setHover] = useState<string | null>(null);
+  // Sizes are set here every frame rather than as a prop: the poster the gull shows you swells twice.
+  const meshes = useRef<Record<string, THREE.Mesh | null>>({});
+  useFrame(() => {
+    const c = cue.current;
+    for (const p of street.posters) meshes.current[p.id]?.scale.setScalar((hover === p.id ? 1.03 : 1) * (c.id === p.id ? 1 + 0.06 * c.pulse : 1));
+  });
+  // the gull on the first poster hops when you point at it
+  useEffect(() => {
+    hovered.current = hover;
+  }, [hover, hovered]);
   useEffect(() => {
     let alive = true;
     const font = getComputedStyle(document.body).fontFamily;
@@ -283,9 +307,11 @@ function Posters({ street, locale, state, onOpen }: { street: World['street']; l
       {street.posters.map((p) => (
         <mesh
           key={p.id}
+          ref={(m) => {
+            meshes.current[p.id] = m;
+          }}
           position={[p.x, p.y, p.z]}
           rotation-y={p.nz < 0 ? Math.PI : 0}
-          scale={hover === p.id ? 1.03 : 1}
           onPointerOver={(e: ThreeEvent<PointerEvent>) => {
             e.stopPropagation();
             if (!state.current.focus) setHover(p.id);
@@ -355,6 +381,10 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
     [],
   );
   const coarse = useMemo(() => matchMedia('(pointer: coarse)').matches, []);
+  const first = useMemo(() => street.posters.find((p) => p.id === STOPS[0].id) ?? null, [street]);
+  const hovered = useRef<string | null>(null);
+  const cue = useRef<Cue>({ want: 0, x: 0, y: 0, z: 0, push: 0, pulse: 0, id: first?.id ?? null });
+  const follow = useRef<Follow>({ on: false, u: 0, cut: false, moved: 0, p: 0, at: new THREE.Vector3(), push: 0 });
   const land = useMemo(() => {
     const g = new THREE.PlaneGeometry(1800, 900);
     g.setAttribute('aMat', new THREE.BufferAttribute(new Float32Array(g.attributes.position.count).fill(MAT.ground), 1));
@@ -516,11 +546,30 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
       L.turn = clamp(L.turn + L.ty - held);
       L.ty = held;
     };
+    // Your own look cuts the camera's following short.
+    const F = follow.current;
+    let mx = NaN;
+    let my = NaN;
+    const stir = (e: PointerEvent) => {
+      if (Number.isFinite(mx)) F.moved += Math.hypot(e.clientX - mx, e.clientY - my);
+      mx = e.clientX;
+      my = e.clientY;
+      if (F.on && F.moved > 90) F.cut = true;
+    };
+    const press = () => {
+      if (F.on) F.cut = true;
+    };
+    el.addEventListener('pointerdown', press);
+    addEventListener('pointermove', stir, { passive: true });
+    addEventListener('wheel', press, { passive: true });
     el.addEventListener('pointerdown', down);
     addEventListener('pointermove', move, { passive: true });
     addEventListener('pointerup', up);
     addEventListener('pointercancel', up);
     return () => {
+      el.removeEventListener('pointerdown', press);
+      removeEventListener('pointermove', stir);
+      removeEventListener('wheel', press);
       el.removeEventListener('pointerdown', down);
       removeEventListener('pointermove', move);
       removeEventListener('pointerup', up);
@@ -561,8 +610,40 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
     // Opening a poster brings you right up to it, so a pinch is let go of.
     if (s.focus) L.zoom = 1;
     L.z += (L.zoom - L.z) * (1 - Math.exp(-dt * 12));
-    v.dir.set(1, 0, 0).applyAxisAngle(UP, L.yaw);
-    v.dir.y = Math.tan(L.pitch) - 0.02;
+
+    // --- Going with the gull (see FOLLOW_IN).
+    const C = cue.current;
+    const F = follow.current;
+    if (C.want && !F.on) {
+      Object.assign(F, { on: true, cut: false, moved: 0, p: s.p });
+      F.at.set(C.x, C.y, C.z);
+    }
+    let fe = 0;
+    if (F.on) {
+      // Scrolling is a look of your own too (unless the boat sails itself, on a touch screen).
+      if (s.focus || s.reduced || (!coarse && Math.abs(s.p - F.p) > 0.002)) F.cut = true;
+      const want = C.want && !F.cut ? 1 : 0;
+      F.u = Math.min(1, Math.max(0, F.u + (want ? dt : -dt) / FOLLOW_IN));
+      if (C.want) F.at.lerp(v.tmp.set(C.x, C.y, C.z), 1 - Math.exp(-dt * 4.5));
+      F.push += ((want ? C.push * FOLLOW_PUSH : 0) - F.push) * (1 - Math.exp(-dt * 2.5));
+      if (!C.want && F.u === 0) F.on = false;
+      fe = easeInOut(F.u);
+    }
+    let yaw = L.yaw;
+    let pitch = L.pitch;
+    if (fe > 0) {
+      const dx = F.at.x - v.pos.x;
+      const dz = F.at.z - v.pos.z;
+      const yawTo = Math.atan2(-dz, dx);
+      // the view's own tilt carries a small dip (below); take it out, so what it follows lands in the middle
+      // and never so far up that the name hanging in the sky over the street comes into the picture
+      const up = FOLLOW_UP.ahead + (FOLLOW_UP.aside - FOLLOW_UP.ahead) * clamp01((Math.abs(yawTo) - 0.45) / 0.4);
+      const pitchTo = Math.min(up, Math.atan(Math.tan(Math.atan2(F.at.y - EYE, Math.hypot(dx, dz))) + 0.02));
+      yaw += Math.atan2(Math.sin(yawTo - yaw), Math.cos(yawTo - yaw)) * fe;
+      pitch += (pitchTo - pitch) * fe;
+    }
+    v.dir.set(1, 0, 0).applyAxisAngle(UP, yaw);
+    v.dir.y = Math.tan(pitch) - 0.02;
     v.dir.normalize();
     v.look.copy(v.pos).add(v.dir);
     boat.current = { x: v.pos.x, y: v.pos.y, z: v.pos.z };
@@ -655,7 +736,7 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
 
     // The pinch: a narrower view from the same place. It is a look from the boat, so it fades out as the camera
     // leaves the boat, for the opening shot, a poster or the bridge.
-    const zoom = 1 + (L.z - 1) * s.intro * (1 - focus.current) * (1 - s.outro);
+    const zoom = (1 + (L.z - 1) * s.intro * (1 - focus.current) * (1 - s.outro)) * (1 + F.push * fe * (1 - focus.current));
     if (zoom > 1.001) fovNow = (2 * Math.atan(Math.tan((fovNow * Math.PI) / 360) / zoom) * 180) / Math.PI;
 
     const cam = camera as THREE.PerspectiveCamera;
@@ -803,7 +884,8 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
       <Clouds />
       <primitive object={boards.title.mesh} />
       <primitive object={boards.thanks.mesh} />
-      <Posters street={street} locale={locale} state={state} onOpen={onOpen} />
+      <Posters street={street} locale={locale} state={state} onOpen={onOpen} hovered={hovered} cue={cue} />
+      {first && <Gull poster={first} state={state} hovered={hovered} onOpen={onOpen} cue={cue} />}
     </>
   );
 }

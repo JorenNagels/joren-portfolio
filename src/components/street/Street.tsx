@@ -169,7 +169,6 @@ export function Street({ locale: l }: { locale: Locale }) {
       // When the boat sails itself the bar is the only way back, so it stays up at the mooring.
       const ending = sail.current.on ? 1 : 1 - clamp01(s.outro / 0.4);
       show('nav', clamp01((s.intro - 0.7) / 0.3) * ending * focus);
-      show('hint', clamp01((s.intro - 0.8) / 0.2) * (1 - clamp01((s.x - stops[0].x + 2) / 6)) * focus);
       show('end', clamp01((s.outro - 0.55) / 0.4));
 
       // The stop you are at or have just gone by, never one still ahead. Nearest-stop flipped at the midpoint
@@ -272,7 +271,7 @@ export function Street({ locale: l }: { locale: Locale }) {
         {gate && <div className="absolute inset-0 cursor-pointer" onClick={start} aria-hidden />}
 
         {/* While the street loads: the name over the pop-up houses, and once it's in, the button to step aboard. Then
-            the name hangs in the street's sky (skyBoard.ts), with the scroll hint under it, and the camera swings round
+            the name hangs in the street's sky (skyBoard.ts), with "scroll to sail" under it, and the camera swings round
             to it. */}
         <div className="pointer-events-none absolute inset-x-0 top-[16%] px-4 text-center">
           <p className={`transition-opacity duration-700 ${shown ? 'opacity-0' : ''}`} aria-hidden>
@@ -297,11 +296,6 @@ export function Street({ locale: l }: { locale: Locale }) {
               </button>
             </div>
           )}
-        </div>
-
-        <div ref={(x) => { els.current.hint = x; }} className="pointer-events-none invisible absolute left-1/2 top-20 w-max max-w-[calc(100vw-2rem)] -translate-x-1/2 rounded-3xl text-center bg-[#25262f] px-4 py-2 text-sm text-[#f4f0e4]" style={{ opacity: 0 }}>
-          <span className="[@media(pointer:coarse)]:hidden">{t.hint[l]}</span>
-          <span className="hidden [@media(pointer:coarse)]:inline">{t.hintTouch[l]}</span>
         </div>
 
         {/* Where you are on the street */}
