@@ -1,0 +1,19 @@
+src/components/street/posters.ts
+  s_1e2df154398973::t_a089579b07e17a 179-200,214,232,255-258
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5323cf084ca50e1e4d565b8878067b1c94e0de0b",
+  "prompts": {},
+  "sessions": {
+    "s_1e2df154398973": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_1e2df154398973",
+        "model": "unknown"
+      },
+      "human_author": "JorenNagels <joren.nagels@aviv-group.com>"
+    }
+  }
+}
