@@ -38,6 +38,9 @@ export function Street({ locale: l }: { locale: Locale }) {
   const state = useRef<StreetState>({ x: stops[0].x, intro: 0, outro: 0, p: 0, pointer: false, reduced: false, focus: null, arrival: null });
   const els = useRef<Record<string, HTMLElement | null>>({});
   const [webgl, setWebgl] = useState<boolean | null>(null);
+  // The context went mid-trip. There is no coming back from it (StreetScene.tsx) — what there is instead is the
+  // rest of the page, which never needed the graphics card: the sky, the name, and the way to get in touch.
+  const [lost, setLost] = useState(false);
   const [coarse, setCoarse] = useState(false);
   const [playing, setPlaying] = useState(true);
   // on: the boat is sailing itself rather than being scrolled. t: how far into the trip we are, in seconds.
@@ -53,6 +56,7 @@ export function Street({ locale: l }: { locale: Locale }) {
   const [ready, setReady] = useState(false);
   const [shown, setShown] = useState(false);
   const onReady = useCallback(() => setReady(true), []);
+  const onLost = useCallback(() => setLost(true), []);
   // Then the visitor steps aboard: a click or key press, which is also what lets the browser play the music.
   const [started, setStarted] = useState(false);
   const [gateGone, setGateGone] = useState(false);
@@ -126,7 +130,7 @@ export function Street({ locale: l }: { locale: Locale }) {
   }, []);
 
   useEffect(() => {
-    if (!webgl) return;
+    if (!webgl || lost) return;
     const io = new IntersectionObserver(([e]) => setActive(e.isIntersecting));
     io.observe(root.current!);
     let last = '';
@@ -194,7 +198,30 @@ export function Street({ locale: l }: { locale: Locale }) {
     };
     // xAt only reads a ref
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [webgl]);
+  }, [webgl, lost]);
+
+  // The trip's own furniture is placed by that loop, in inline styles, so stopping the loop leaves it wherever it
+  // stood when the context went. Put the stage back to the opening sky and leave standing only what still means
+  // something without a street: not the stop bar, but the way to get in touch.
+  useEffect(() => {
+    if (!lost) return;
+    const st = stage.current;
+    if (st) {
+      st.style.background = 'linear-gradient(to bottom, rgb(118,196,186), rgb(238,232,210) 62%)';
+      st.style.setProperty('--fg', '#25262f');
+    }
+    const nav = els.current.nav;
+    if (nav) {
+      nav.style.opacity = '0';
+      nav.style.visibility = 'hidden';
+    }
+    const end = els.current.end;
+    if (end) {
+      end.style.opacity = '1';
+      end.style.transform = 'none';
+      end.style.visibility = 'visible';
+    }
+  }, [lost]);
 
   // While the start button waits: no scrolling yet (the trip would move on behind the loader), any key starts, and
   // trying to scroll gives the button a wiggle, since a scroll can't start the sound.
@@ -281,24 +308,26 @@ export function Street({ locale: l }: { locale: Locale }) {
   const idx = stops.findIndex((s) => s.id === current);
 
   return (
-    <section ref={root} className={`relative ${coarse ? 'h-dvh' : 'h-[1000vh]'}`} aria-label={person.name}>
+    <section ref={root} className={`relative ${coarse || lost ? 'h-dvh' : 'h-[1000vh]'}`} aria-label={person.name}>
       <div ref={stage} className="sticky top-0 h-dvh overflow-hidden text-[var(--fg)]" style={{ background: 'linear-gradient(to bottom, rgb(118,196,186), rgb(238,232,210) 62%)', ['--fg' as string]: '#25262f' }}>
         <div className={`absolute inset-0 transition-opacity duration-500 ease-out ${shown ? 'opacity-100' : 'opacity-0'}`}>
-          {webgl && <StreetScene state={state} locale={l} active={active} onOpen={openStop} onReady={onReady} />}
+          {webgl && !lost && <StreetScene state={state} locale={l} active={active} onOpen={openStop} onLost={onLost} onReady={onReady} />}
         </div>
-        <Loader l={l} built={built} ready={ready} go={started} onMeasure={onMeasure} onOut={onShown} />
+        {/* Once the context is gone the loader must go too: it folds away on the street's first frame, and there
+            will not be one, so it would pop its houses up and down over the fallback for ever. */}
+        {!lost && <Loader l={l} built={built} ready={ready} go={started} onMeasure={onMeasure} onOut={onShown} />}
         {/* Click anywhere to start (and not on the street behind, which is still hidden) */}
-        {gate && <div className="absolute inset-0 cursor-pointer" onClick={start} aria-hidden />}
+        {gate && !lost && <div className="absolute inset-0 cursor-pointer" onClick={start} aria-hidden />}
 
         {/* While the street loads: the name over the pop-up houses, and once it's in, the button to step aboard. Then
             the name hangs in the street's sky (skyBoard.ts), with "scroll to sail" under it, and the camera swings round
             to it. */}
         <div className="pointer-events-none absolute inset-x-0 top-[16%] px-4 text-center">
-          <p className={`transition-opacity duration-700 ${shown ? 'opacity-0' : ''}`} aria-hidden>
+          <p className={`transition-opacity duration-700 ${shown && !lost ? 'opacity-0' : ''}`} aria-hidden>
             <span className="block text-base sm:text-lg">{t.role[l]}</span>
             <span className="mt-1 block text-[clamp(2.5rem,8.2vw,8.9rem)] font-semibold leading-[0.85] tracking-[-0.055em]">{person.name}</span>
           </p>
-          {ready && !gateGone && (
+          {ready && !gateGone && !lost && (
             <div className="gate mt-[clamp(1.25rem,5vh,3rem)] flex flex-col items-center" data-go={started || undefined}>
               <button
                 ref={startBtn}

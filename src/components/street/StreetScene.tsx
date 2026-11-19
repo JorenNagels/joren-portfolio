@@ -14,6 +14,7 @@ import { cabinBoat, kayak, ownBoat, type Rider, rowBoat, sloep, tourBoat } from 
 import { GRASLEI, RIDE, rowLength, STOPS } from './plan';
 import { BRIDGE, FAR, MAT, MIDSTREAM, palette, QUAY, RIVER, WATER } from './houses';
 import { People, Sitters } from './People';
+import { mark, mb } from './mark';
 import { posterTexture } from './posters';
 import { streetCopy } from './copy';
 import { type Framing, type Line, paintBoard, placeBoard, skyBoard, split2 } from './skyBoard';
@@ -291,7 +292,15 @@ function Posters({ street, locale, state, onOpen, hovered, cue }: { street: Worl
     const font = getComputedStyle(document.body).fontFamily;
     document.fonts.ready.then(async () => {
       const out: Record<string, THREE.Texture> = {};
-      for (const p of street.posters) out[p.id] = await posterTexture(p.id, locale, font);
+      let total = 0;
+      for (const p of street.posters) {
+        out[p.id] = await posterTexture(p.id, locale, font);
+        // Seven of these are built before the street draws a frame, and together they are the largest thing the
+        // page puts on the card. If the context goes in the middle of this loop, the log says which one it was on.
+        const c = out[p.id].image as HTMLCanvasElement;
+        total += mb(c.width, c.height);
+        mark(`poster ${p.id} ${c.width}x${c.height} · ${total.toFixed(0)}MB of posters so far`);
+      }
       if (alive) setTex(out);
     });
     return () => {
@@ -334,7 +343,7 @@ function Posters({ street, locale, state, onOpen, hovered, cue }: { street: Worl
 
 /* ---------------- Camera, light, and the ink pipeline ---------------- */
 
-function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; state: RefObject<StreetState>; locale: Locale; onOpen: (id: string) => void; onSlow: (dpr: number) => void; onReady: () => void }) {
+function Scene({ town, state, locale, onOpen, onSlow, onLost, onReady }: { town: World; state: RefObject<StreetState>; locale: Locale; onOpen: (id: string) => void; onSlow: (dpr: number) => void; onLost: () => void; onReady: () => void }) {
   const { street, towers, background } = town;
   const { camera, size, gl, scene } = useThree();
   // the people's body and clothes, made in Blender (public/people/person.glb); they appear once it is in
@@ -451,22 +460,40 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
   useEffect(() => {
     if (sun.current) scene.add(sun.current.target);
     gl.shadowMap.autoUpdate = false;
+    const m = sun.current?.shadow.mapSize;
+    if (m) mark(`shadow map ${m.x}x${m.y} · ~${mb(m.x, m.y, 4, false).toFixed(0)}MB`);
   }, [scene, gl]);
 
-  // If the graphics card takes the context away — on a phone that nearly always means it was asked for more memory
-  // than it had to give — ask for less, so that whenever the browser does hand a context back there is a chance of
-  // keeping it. three.js already asks for it back (it calls preventDefault itself and reinstates everything on
-  // webglcontextrestored); what it cannot do is come back smaller, and the same size would only go the same way.
+  /**
+   * If the graphics card takes the context away, the street is over.
+   *
+   * This used to ask for a smaller size here and hope the next context would fit, which cannot work and never did:
+   * three.js asks for the context back (it calls preventDefault itself and reinstates everything on
+   * webglcontextrestored), but on the phones this happens to, webglcontextrestored never fires — and a context
+   * that is gone cannot be resized either, so the smaller size went to a canvas with no drawing buffer at all.
+   * What the visitor got was Chrome's sad face with the menu still floating over it.
+   *
+   * So: say so, and let the page put something else there. Whether a rebuilt canvas would get a context is a
+   * question the debug panel now answers out loud on the phones where this happens (Debug.tsx), and until one of
+   * those logs comes back there is nothing here worth guessing at.
+   */
   useEffect(() => {
     const el = gl.domElement;
-    const lost = () => {
-      const sizes = coarse ? PHONE_SIZES : SIZES;
-      const next = sizes.find((s) => s < gl.getPixelRatio());
-      if (next !== undefined) onSlow(coarse ? fits(Math.min(devicePixelRatio, next)) : next);
-    };
+    const lost = () => onLost();
     el.addEventListener('webglcontextlost', lost);
     return () => el.removeEventListener('webglcontextlost', lost);
-  }, [gl, coarse, onSlow]);
+  }, [gl, onLost]);
+
+  // The street's own targets outlive a render; nothing else disposes them, and now that losing the context
+  // unmounts the whole scene they would otherwise be left on the card every time it happens.
+  useEffect(
+    () => () => {
+      targets.color.dispose();
+      targets.normal.depthTexture?.dispose();
+      targets.normal.dispose();
+    },
+    [targets],
+  );
 
   // Two ways of looking, added together. `ty` is the gentle look the mouse's place on screen gives you, within
   // YAW either side of straight ahead. `turn` is which way you are facing, and a drag — with a finger or with
@@ -782,6 +809,13 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
         targets.color.samples = samples;
         targets.color.dispose();
       }
+      // The buffers the street draws into, at the size they have just been given. A step down the sizes above
+      // should make this number fall; if it rises, the step down is costing memory rather than saving it.
+      const px = v.buf.x * v.buf.y;
+      mark(
+        `targets ${v.buf.x}x${v.buf.y} dpr ${gl.getPixelRatio()} samples ${samples} · colour ~${mb(v.buf.x, v.buf.y, 4 * Math.max(1, samples) + 4, false).toFixed(0)}MB` +
+          ` · normals ~${mb(v.buf.x, v.buf.y, 8, false).toFixed(0)}MB · canvas ~${mb(v.buf.x, v.buf.y, 8, false).toFixed(0)}MB · ${(px / 1e6).toFixed(2)}Mpx`,
+      );
     }
     for (const b of Object.values(boards)) b.mesh.visible = b.on;
     gl.setClearColor(0x000000, 0);
@@ -806,6 +840,7 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
     }
     // Above 90 frames a second the shadows are redrawn every other frame; nobody sees a shadow a frame behind.
     gl.shadowMap.needsUpdate = dt > 1 / 90 || frame.current++ % 2 === 0;
+    if (frame.current === 1) mark('first frame — everything above this line is allocated and the street drew');
     gl.setRenderTarget(targets.color);
     gl.clear();
     gl.render(scene, camera);
@@ -890,7 +925,7 @@ function Scene({ town, state, locale, onOpen, onSlow, onReady }: { town: World; 
   );
 }
 
-export default function StreetScene(props: { state: RefObject<StreetState>; locale: Locale; active: boolean; onOpen: (id: string) => void; onReady: () => void }) {
+export default function StreetScene(props: { state: RefObject<StreetState>; locale: Locale; active: boolean; onOpen: (id: string) => void; onLost: () => void; onReady: () => void }) {
   const { active, ...rest } = props;
   const { state } = props;
   // The render size lives here, not only inside three.js: the canvas puts back whatever size it is given each

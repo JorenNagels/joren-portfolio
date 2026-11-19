@@ -35,7 +35,12 @@ export function Debug() {
 
     // Errors are kept oldest-first and capped: the first one is nearly always the one that matters, and a loop
     // throwing every frame must not push it off the top.
-    const push = (s: string) => setLines((xs) => (xs.length >= 50 ? xs : [...xs, s]));
+    // Every line carries the second it happened: without it the log says the context went but not what the page was
+    // in the middle of, which is the one thing that names a cause.
+    const push = (s: string) => setLines((xs) => (xs.length >= 50 ? xs : [...xs, `${(performance.now() / 1000).toFixed(2)}s ${s}`]));
+    // What the street marks its allocations through (mark.ts). Installed only here, so without ?debug=1 the street
+    // measures and formats nothing.
+    (window as unknown as { __mark?: (s: string) => void }).__mark = push;
     const text = (a: unknown) => {
       if (a instanceof Error) return a.message;
       if (typeof a === 'string') return a;
@@ -113,6 +118,15 @@ export function Debug() {
     }
     setCaps(first);
 
+    // The canary: a second context, one pixel across, kept alive for the life of the page and never asked to do
+    // anything. When the street's context goes, whether this one went with it is the whole question.
+    //   · dead too — the GPU process itself came down (a driver reset, a crash, the phone reclaiming it). Nothing
+    //     about the street's own footprint caused that, and cutting it would not have helped.
+    //   · still alive — Chrome dropped the street's context and left its neighbour standing, which is what it does
+    //     when one context asks for more than it is allowed. Then the sizes in the log above are what to cut.
+    // Two causes that look identical on screen and want opposite fixes; this is the line that tells them apart.
+    const canary = document.createElement('canvas').getContext('webgl2');
+
     // The street's own canvas, once it has made one: the size it asked for against the size it was given, and
     // whether the context is still there. getContext hands back the one three.js is already using.
     const watched = new WeakSet<HTMLCanvasElement>();
@@ -121,7 +135,20 @@ export function Debug() {
       if (!c) return;
       if (!watched.has(c)) {
         watched.add(c);
-        c.addEventListener('webglcontextlost', () => push(`LOST the context at ${c.width}x${c.height}`));
+        c.addEventListener('webglcontextlost', (e) => {
+          // And can a context be had at all, right now? three.js asks for this one back and waits for
+          // webglcontextrestored, which on the phone this panel was written for never comes. Asking straight out
+          // settles whether building a fresh canvas would get anywhere, before any code is written to try it.
+          const fresh = document.createElement('canvas').getContext('webgl2');
+          const status = (e as WebGLContextEvent).statusMessage;
+          push(
+            `LOST the context at ${c.width}x${c.height}` +
+              ` · canary ${canary ? (canary.isContextLost() ? 'ALSO DEAD → the whole GPU process went down' : 'alive → this context alone was dropped') : 'none'}` +
+              ` · a new context is ${fresh ? 'GRANTED → a rebuilt canvas could work' : 'REFUSED → a rebuilt canvas could not'}` +
+              (status ? ` · ${status}` : ''),
+          );
+          fresh?.getExtension('WEBGL_lose_context')?.loseContext();
+        });
         c.addEventListener('webglcontextrestored', () => push('RESTORED'));
         c.addEventListener('webglcontextcreationerror', (e) => push(`NO CONTEXT: ${(e as WebGLContextEvent).statusMessage}`));
       }
@@ -145,6 +172,8 @@ export function Debug() {
       removeEventListener('error', onErr);
       removeEventListener('unhandledrejection', onRej);
       clearInterval(id);
+      delete (window as unknown as { __mark?: (s: string) => void }).__mark;
+      canary?.getExtension('WEBGL_lose_context')?.loseContext();
     };
   }, []);
 
