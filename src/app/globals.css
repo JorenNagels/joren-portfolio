@@ -314,6 +314,13 @@ html.gated {
 html.reading {
   overflow: hidden;
 }
+
+/* Where the scrollbar takes up room (Windows, or a Mac set to always show it), hiding the overflow above would
+   hand that room back and widen the page. The canvas would then be resized — and its buffers reallocated — on
+   the very frame the camera sets off for a poster. The gutter stays whether anything scrolls or not. */
+html {
+  scrollbar-gutter: stable;
+}
 .gate {
   animation: gate-in 650ms cubic-bezier(0.25, 1.45, 0.45, 1) both;
 }

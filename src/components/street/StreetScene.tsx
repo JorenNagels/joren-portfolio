@@ -1,7 +1,7 @@
 'use client';
 
 import { advance, Canvas, useFrame, useThree, type ThreeEvent } from '@react-three/fiber';
-import { useEffect, useMemo, useRef, useState, type RefObject } from 'react';
+import { memo, useEffect, useMemo, useRef, useState, type RefObject } from 'react';
 import * as THREE from 'three';
 import { person } from '@/content/profile';
 import type { Locale } from '@/content/types';
@@ -67,6 +67,22 @@ const CREAM = '#f4f0e4';
 
 const easeInOut = (x: number) => (x < 0.5 ? 2 * x * x : 1 - Math.pow(-2 * x + 2, 2) / 2);
 const UP = new THREE.Vector3(0, 1, 0);
+/**
+ * Turns one view direction towards another along the shortest arc, at an even rate: `t` of the way is `t` of
+ * the angle. Sliding between two points to look at does not do this — how fast the view swings then depends on
+ * how far off each point is — which is what made stepping up to a poster start with a whip of the head.
+ */
+function slerpDir(out: THREE.Vector3, a: THREE.Vector3, b: THREE.Vector3, t: number) {
+  const ang = Math.acos(Math.min(1, Math.max(-1, a.dot(b))));
+  // already there, or facing exactly the other way, where no arc is shorter than any other
+  if (ang < 1e-4 || ang > Math.PI - 1e-3) return out.copy(a).lerp(b, t).normalize();
+  const s = Math.sin(ang);
+  return out
+    .copy(a)
+    .multiplyScalar(Math.sin((1 - t) * ang) / s)
+    .addScaledVector(b, Math.sin(t * ang) / s)
+    .normalize();
+}
 /** Sets a three.js colour from one of the sky's sRGB colours. */
 const srgb = (out: THREE.Color, c: RGB) => out.setRGB(c[0] / 255, c[1] / 255, c[2] / 255, THREE.SRGBColorSpace);
 
@@ -376,6 +392,8 @@ function Scene({ town, state, locale, onOpen, onSlow, onLost, onReady }: { town:
       tmp: new THREE.Vector3(),
       fpos: new THREE.Vector3(),
       flook: new THREE.Vector3(),
+      fdir: new THREE.Vector3(),
+      sdir: new THREE.Vector3(),
       wpos: new THREE.Vector3(),
       wlook: new THREE.Vector3(),
       wdir: new THREE.Vector3(),
@@ -714,8 +732,13 @@ function Scene({ town, state, locale, onOpen, onSlow, onLost, onReady }: { town:
     }
 
     // --- Clicked a poster: step up to it, leaving room for the panel.
-    if (s.focus) focusId.current = s.focus;
-    focus.current += ((s.focus ? 1 : 0) - focus.current) * (1 - Math.exp(-dt * 3.2));
+    // One poster at a time. Tapping a second while the camera is still flying back from the first used to swap
+    // the target from under the easing: at half-way out, the aim jumped half the distance between the two
+    // posters in a single frame. The one being left keeps the flight until it is done, and only then does the
+    // new one take over — so the camera is always easing between two places it has actually been.
+    if (s.focus && !focusId.current) focusId.current = s.focus;
+    const leaving = !!focusId.current && s.focus !== focusId.current;
+    focus.current += ((s.focus && !leaving ? 1 : 0) - focus.current) * (1 - Math.exp(-dt * 3.2));
     const f = focusId.current ? street.posters.find((p) => p.id === focusId.current) : null;
     if (f && focus.current > 0.001) {
       const tv = Math.tan(((fov / 2) * Math.PI) / 180);
@@ -725,9 +748,20 @@ function Scene({ town, state, locale, onOpen, onSlow, onLost, onReady }: { town:
       v.flook.set(f.x + (portrait ? 0 : f.nz * f.w * 0.46), f.y - (portrait ? d * tv * 0.55 : 0), f.z);
       v.fpos.set(v.flook.x, v.flook.y, f.z + f.nz * d);
       const e = easeInOut(focus.current);
+      // Turn the view, not a point to look at. The boat's look point sits one metre in front of the eye while
+      // the poster's is metres off, so sliding between the two points swung the whole head in the first few
+      // frames and then crawled the rest of the way — a whip-pan, and the further the poster the harder the
+      // whip. Rotating the direction itself turns at an even rate, in step with the walk across.
+      v.fdir.copy(v.flook).sub(v.fpos).normalize();
+      // where the view points right now, whatever set it — the boat, the opening shot, or a flight still easing out
+      v.sdir.copy(v.look).sub(v.pos).normalize();
       v.pos.lerp(v.fpos, e);
-      v.look.lerp(v.flook, e);
-    } else if (focus.current < 0.001) focusId.current = null;
+      slerpDir(v.dir, v.sdir, v.fdir, e);
+      v.look.copy(v.pos).add(v.dir);
+    } else if (focus.current < 0.001) {
+      focus.current = 0;
+      focusId.current = s.focus ?? null;
+    }
 
     // --- Arriving from the loader: start where its houses were drawn, then swing round into the shot above.
     let fovNow = fov;
@@ -925,7 +959,10 @@ function Scene({ town, state, locale, onOpen, onSlow, onLost, onReady }: { town:
   );
 }
 
-export default function StreetScene(props: { state: RefObject<StreetState>; locale: Locale; active: boolean; onOpen: (id: string) => void; onLost: () => void; onReady: () => void }) {
+// Opening and closing a poster is a React state change up in Street.tsx, and without this the whole scene
+// re-rendered on the very frame of the click — the slowest frame there is to lose, since it is the one the
+// flight to the poster starts on. Every prop here is already stable across those renders.
+function StreetScene(props: { state: RefObject<StreetState>; locale: Locale; active: boolean; onOpen: (id: string) => void; onLost: () => void; onReady: () => void }) {
   const { active, ...rest } = props;
   const { state } = props;
   // The render size lives here, not only inside three.js: the canvas puts back whatever size it is given each
@@ -982,3 +1019,5 @@ export default function StreetScene(props: { state: RefObject<StreetState>; loca
     </Canvas>
   );
 }
+
+export default memo(StreetScene);

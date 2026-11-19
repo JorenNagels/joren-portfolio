@@ -20,6 +20,7 @@ import type { StreetState } from './StreetScene';
 const StreetScene = dynamic(() => import('./StreetScene'), { ssr: false });
 const lenis = () => (window as unknown as { lenis?: Lenis }).lenis;
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));
+const easeOut = (x: number) => 1 - Math.pow(1 - x, 3);
 
 // Scroll budget: the wide opening shot, the walk past the houses, the wide closing shot.
 const INTRO = 0.08;
@@ -44,7 +45,9 @@ export function Street({ locale: l }: { locale: Locale }) {
   const [coarse, setCoarse] = useState(false);
   const [playing, setPlaying] = useState(true);
   // on: the boat is sailing itself rather than being scrolled. t: how far into the trip we are, in seconds.
-  const sail = useRef({ on: false, t: 0, playing: true });
+  // `ease` is the clock's speed, 0 to 1. It is dropped on closing a poster so the river picks up again
+  // rather than snapping back to full speed while the camera is still flying home to the boat.
+  const sail = useRef({ on: false, t: 0, playing: true, ease: 1 });
   const [active, setActive] = useState(true);
   const [open, setOpen] = useState<string | null>(null);
   // Where the trip stood when a poster was opened, and null the rest of the time. While it holds a number the
@@ -137,6 +140,7 @@ export function Street({ locale: l }: { locale: Locale }) {
     // Only touch the page's styles when something moved: writing them every frame makes the browser redo the
     // style and repaint the sky behind the canvas, even when nobody is scrolling.
     let drawn: { p: number; focus: string | null } | null = null;
+    const painted = { bg: '', ink: '' };
     const tick = (_time: number, dt: number) => {
       const el = root.current;
       const st = stage.current;
@@ -151,7 +155,10 @@ export function Street({ locale: l }: { locale: Locale }) {
         // The trip runs on its own clock, and that clock starts when the visitor steps aboard — not while they are
         // still looking at the loader. It holds while you are reading a poster too, so the river does not carry on
         // without you.
-        if (sail.current.playing && handedOver.current && !s.focus) sail.current.t = Math.min(SAIL, sail.current.t + dt);
+        if (sail.current.playing && handedOver.current && !s.focus) {
+          sail.current.ease = Math.min(1, sail.current.ease + dt / 0.9);
+          sail.current.t = Math.min(SAIL, sail.current.t + dt * easeOut(sail.current.ease));
+        }
         p = clamp01(sail.current.t / SAIL);
       } else {
         const r = el.getBoundingClientRect();
@@ -163,10 +170,15 @@ export function Street({ locale: l }: { locale: Locale }) {
       s.intro = clamp01(p / INTRO);
       s.outro = clamp01((p - OUTRO) / (1 - OUTRO));
       s.x = xAt((p - INTRO) / (OUTRO - INTRO));
+      // The sky is written in whole colour steps, so most frames ask for the same two colours as the last one.
+      // Writing them anyway restyles the stage and everything in it — including the open panel, since --fg is
+      // inherited — and repaints the sky behind the canvas, for a picture nobody could tell apart.
       const sky = skyAt(p);
-      st.style.background = `linear-gradient(to bottom, rgb(${sky.top.map(Math.round)}) 0%, rgb(${sky.horizon.map(Math.round)}) 62%)`;
+      const bg = `linear-gradient(to bottom, rgb(${sky.top.map(Math.round)}) 0%, rgb(${sky.horizon.map(Math.round)}) 62%)`;
       const fg = Math.round(37 + sky.dark * 205);
-      st.style.setProperty('--fg', `rgb(${fg},${fg},${Math.min(255, fg + 8)})`);
+      const ink = `rgb(${fg},${fg},${Math.min(255, fg + 8)})`;
+      if (bg !== painted.bg) st.style.background = (painted.bg = bg);
+      if (ink !== painted.ink) st.style.setProperty('--fg', (painted.ink = ink));
 
       const show = (k: string, o: number) => {
         const x = els.current[k];
@@ -264,6 +276,7 @@ export function Street({ locale: l }: { locale: Locale }) {
   const openStop = useCallback((id: string) => {
     state.current.focus = id;
     held.current = state.current.p;
+    sail.current.ease = 0;
     setOpen(id);
     lenis()?.stop();
   }, []);
@@ -285,7 +298,8 @@ export function Street({ locale: l }: { locale: Locale }) {
     document.documentElement.classList.add('reading');
     const key = (e: KeyboardEvent) => e.key === 'Escape' && close();
     addEventListener('keydown', key);
-    document.getElementById('panel-close')?.focus();
+    // still off screen at this point: bringing it into view would shove the street sideways under it
+    document.getElementById('panel-close')?.focus({ preventScroll: true });
     return () => {
       document.documentElement.classList.remove('reading');
       removeEventListener('keydown', key);
@@ -445,7 +459,7 @@ function Journey({ stops, at, current, label, sail, playing, onToggle, onOpen }:
   at: (x: number) => number;
   current: string;
   label: string;
-  sail: React.RefObject<{ on: boolean; t: number; playing: boolean }>;
+  sail: React.RefObject<{ on: boolean; t: number; playing: boolean; ease: number }>;
   playing: boolean;
   onToggle: () => void;
   onOpen: () => void;
@@ -554,21 +568,29 @@ function Journey({ stops, at, current, label, sail, playing, onToggle, onOpen }:
 function Panel({ id, l, onClose }: { id: string | null; l: Locale; onClose: () => void }) {
   const [shown, setShown] = useState<string | null>(id);
   const sheet = useRef<HTMLElement>(null);
+  const scroller = useRef<HTMLDivElement>(null);
   // Whether the story has been pushed up under the bar, which is the only time the bar needs to cast a shadow.
   const [under, setUnder] = useState(false);
   // Every poster opens at its own first line. The panel is one element that swaps its contents, so without this
   // the second poster you open starts wherever you had scrolled to in the first — halfway down someone else's
   // story, with the title off the top. It runs while the sheet is still off screen, so nothing is seen jumping.
-  useEffect(() => {
-    if (!id) return;
+  // Worked out while rendering, not in an effect afterwards. An effect runs after the browser has painted, so
+  // opening a second poster within the 700ms the first sheet takes to slide out put one frame of the old story
+  // in the arriving sheet before the swap caught up.
+  if (id && id !== shown) {
     setShown(id);
     setUnder(false);
-    if (sheet.current) sheet.current.scrollTop = 0;
+  }
+  useEffect(() => {
+    if (id && scroller.current) scroller.current.scrollTop = 0;
   }, [id]);
 
   // On a phone the panel is a sheet, and a sheet you can pull down on. The drag lives on the header — the bar
   // with the grip and the close button — so it never fights the reading underneath it.
-  const drag = useRef<{ y: number; at: number } | null>(null);
+  // `y`/`at` are where the drag began; `py`/`pat` trail about 60ms behind the finger, so letting go can be
+  // judged on the speed at that moment. Averaged over the whole drag, a slow pull that ends in a flick reads
+  // as slow and the sheet stays put, which is not what the hand did.
+  const drag = useRef<{ y: number; at: number; ly: number; lat: number; py: number; pat: number } | null>(null);
   const dragTo = (dy: number) => {
     const el = sheet.current;
     if (el) el.style.transform = dy > 0 ? `translateY(${dy}px)` : '';
@@ -576,12 +598,22 @@ function Panel({ id, l, onClose }: { id: string | null; l: Locale; onClose: () =
   const down = (e: React.PointerEvent) => {
     if (!sheet.current || matchMedia('(min-width: 640px)').matches) return;
     if ((e.target as Element).closest('button')) return;
-    drag.current = { y: e.clientY, at: performance.now() };
+    const now = performance.now();
+    drag.current = { y: e.clientY, at: now, ly: e.clientY, lat: now, py: e.clientY, pat: now };
     sheet.current.style.transition = 'none';
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const move = (e: React.PointerEvent) => {
-    if (drag.current) dragTo(e.clientY - drag.current.y);
+    const d = drag.current;
+    if (!d) return;
+    const now = performance.now();
+    if (now - d.lat > 60) {
+      d.py = d.ly;
+      d.pat = d.lat;
+    }
+    d.ly = e.clientY;
+    d.lat = now;
+    dragTo(e.clientY - d.y);
   };
   const up = (e: React.PointerEvent) => {
     const d = drag.current;
@@ -591,49 +623,56 @@ function Panel({ id, l, onClose }: { id: string | null; l: Locale; onClose: () =
     el.style.transition = '';
     el.style.transform = '';
     const dy = e.clientY - d.y;
-    // far enough down, or a quick flick: let it go. Otherwise it springs back on its own transition.
-    if (dy > 110 || dy / Math.max(1, performance.now() - d.at) > 0.5) onClose();
+    const v = (e.clientY - d.py) / Math.max(1, performance.now() - d.pat);
+    // far enough down, or still travelling when it was let go. Otherwise it springs back on its own transition.
+    if (dy > 110 || (dy > 20 && v > 0.5)) onClose();
   };
 
   const kind = shown ? kindOf(shown) : null;
   return (
     <>
       <div
-        className={`absolute inset-0 bg-[#25262f]/35 transition-opacity duration-500 sm:bg-transparent ${id ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
+        className={`absolute inset-0 bg-[#25262f]/35 transition-opacity duration-[420ms] sm:bg-transparent ${id ? 'opacity-100' : 'pointer-events-none opacity-0'}`}
         onClick={onClose}
         aria-hidden
       />
+      {/* Two elements, deliberately. The outer one is the only thing that moves: it carries the slide-in
+          transform and nothing else. The scrolling happens one level in, because a `sticky` header inside a
+          container that is both scrolling and being transformed is where iOS Safari drops the bar out of its
+          flow mid-animation — it paints over the story instead of above it. Keeping the transform off the
+          scroller is what makes the pinned bar behave on a phone.
+          svh, not dvh: the small viewport is a fixed number, so the sheet keeps its height while Safari's bars
+          slide in and out. On dvh it grew and shrank under your thumb as you read. */}
       <aside
         ref={sheet}
-        onScroll={(e) => setUnder(e.currentTarget.scrollTop > 4)}
-        // svh, not dvh: the small viewport is a fixed number, so the sheet keeps its height while Safari's bars
-        // slide in and out. On dvh it grew and shrank under your thumb as you read.
-        className={`absolute inset-x-0 bottom-0 max-h-[82svh] overflow-y-auto overscroll-contain rounded-t-[1.75rem] bg-[#f4f0e4] text-[#25262f] ring-[1.5px] ring-[#25262f] transition-transform duration-700 ease-[cubic-bezier(.2,.8,.2,1)] sm:inset-x-auto sm:bottom-4 sm:right-4 sm:top-16 sm:max-h-none sm:w-[min(500px,42vw)] sm:rounded-2xl sm:shadow-[4px_4px_0_#25262f] ${
+        className={`absolute inset-x-0 bottom-0 flex max-h-[82svh] flex-col overflow-hidden rounded-t-[1.75rem] bg-[#f4f0e4] text-[#25262f] ring-[1.5px] ring-[#25262f] [will-change:transform] transition-transform duration-[560ms] ease-[cubic-bezier(.2,.8,.2,1)] sm:inset-x-auto sm:bottom-4 sm:right-4 sm:top-16 sm:max-h-none sm:w-[min(500px,42vw)] sm:rounded-2xl sm:shadow-[4px_4px_0_#25262f] ${
           id ? 'translate-y-0 sm:translate-x-0' : 'translate-y-[110%] sm:translate-x-[115%] sm:translate-y-0'
         }`}
         aria-hidden={!id}
         data-lenis-prevent
       >
-        {/* The grip and the way out, pinned to the top of the sheet. It carries the sheet's own colour, so the
-            story slides away behind it rather than being cut off in a line under the button. */}
-        <header
-          onPointerDown={down}
-          onPointerMove={move}
-          onPointerUp={up}
-          onPointerCancel={up}
-          className={`sticky top-0 z-10 flex touch-none select-none items-center justify-end bg-[#f4f0e4] px-5 pb-2 pt-3 transition-shadow duration-200 sm:px-9 sm:pb-3 sm:pt-7 ${
-            under ? 'shadow-[0_10px_12px_-10px_rgba(37,38,47,.4)]' : ''
-          }`}
-        >
-          <span className="absolute left-1/2 top-2.5 h-1 w-10 -translate-x-1/2 rounded-full bg-[#25262f]/25 sm:hidden" aria-hidden />
-          <button id="panel-close" type="button" onClick={onClose} className="relative -mr-1 rounded-full bg-[#f4f0e4] px-3 py-1.5 text-sm ring-[1.5px] ring-[#25262f] hover:bg-black/5 active:bg-black/10 sm:mr-0 sm:py-1">
-            {t.close[l]} ✕
-          </button>
-        </header>
-        <div className="px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-9 sm:pb-9">
-          {kind === 'about' && <AboutPanel l={l} />}
-          {kind === 'work' && <WorkPanel id={shown!} l={l} />}
-          {kind === 'project' && <ProjectPanel id={shown!} l={l} />}
+        <div ref={scroller} onScroll={(e) => setUnder(e.currentTarget.scrollTop > 4)} className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          {/* The grip and the way out, pinned to the top. It carries the sheet's own colour, so the story
+              slides away behind it rather than being cut off in a line under the button. */}
+          <header
+            onPointerDown={down}
+            onPointerMove={move}
+            onPointerUp={up}
+            onPointerCancel={up}
+            className={`sticky top-0 z-10 flex touch-none select-none items-center justify-end bg-[#f4f0e4] px-5 pb-2 pt-3 transition-shadow duration-200 sm:px-9 sm:pb-3 sm:pt-7 ${
+              under ? 'shadow-[0_10px_12px_-10px_rgba(37,38,47,.4)]' : ''
+            }`}
+          >
+            <span className="absolute left-1/2 top-2.5 h-1 w-10 -translate-x-1/2 rounded-full bg-[#25262f]/25 sm:hidden" aria-hidden />
+            <button id="panel-close" type="button" onClick={onClose} className="relative -mr-1 rounded-full bg-[#f4f0e4] px-3 py-1.5 text-sm ring-[1.5px] ring-[#25262f] hover:bg-black/5 active:bg-black/10 sm:mr-0 sm:py-1">
+              {t.close[l]} ✕
+            </button>
+          </header>
+          <div className="px-5 pb-[calc(1.5rem+env(safe-area-inset-bottom))] sm:px-9 sm:pb-9">
+            {kind === 'about' && <AboutPanel l={l} />}
+            {kind === 'work' && <WorkPanel id={shown!} l={l} />}
+            {kind === 'project' && <ProjectPanel id={shown!} l={l} />}
+          </div>
         </div>
       </aside>
     </>
