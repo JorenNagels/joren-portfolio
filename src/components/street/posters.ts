@@ -176,10 +176,28 @@ export async function posterTexture(id: string, l: Locale, font: string) {
   const ctx = c.getContext('2d')!;
   const f = (weight: number, size: number) => `${weight} ${size}px ${font}`;
   const kind = kindOf(id);
-  const more = (x: number, y: number, color = RED) => {
-    ctx.fillStyle = color;
-    ctx.font = f(600, 44);
-    ctx.fillText(`${t.more[l]} →`, x, y);
+  // Where the button below starts: text above it has to stop short of here.
+  const MORE_TOP = H - 80 - 120;
+  // A button, not a line of small print: from the boat a poster is only a few centimetres across on a phone, and
+  // this is the one thing on it that has to be read and tapped. Shaped like the buttons on the page, with the
+  // same hard shadow under it.
+  const more = (x: number, bg = INK, ink = PAPER) => {
+    const h = 120;
+    const y = MORE_TOP;
+    ctx.font = f(600, 64);
+    const w = ctx.measureText(`${t.more[l]} →`).width + 2 * 56;
+    ctx.fillStyle = 'rgba(0,0,0,0.28)';
+    ctx.beginPath();
+    ctx.roundRect(x, y + 10, w, h, h / 2);
+    ctx.fill();
+    ctx.fillStyle = bg;
+    ctx.beginPath();
+    ctx.roundRect(x, y, w, h, h / 2);
+    ctx.fill();
+    ctx.fillStyle = ink;
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`${t.more[l]} →`, x + 56, y + h / 2 + 3);
+    ctx.textBaseline = 'alphabetic';
   };
 
   if (kind === 'about') {
@@ -193,7 +211,7 @@ export async function posterTexture(id: string, l: Locale, font: string) {
     ctx.fillText(person.name, 714, 380);
     ctx.font = f(500, 56);
     wrap(ctx, `${headline[l]}, ${person.location[l]}`, 720, 490, W - 800, 70, 2);
-    more(720, H - 100);
+    more(720);
   }
 
   if (kind === 'work') {
@@ -211,7 +229,7 @@ export async function posterTexture(id: string, l: Locale, font: string) {
     ctx.fillStyle = PAPER;
     ctx.font = f(500, 58);
     wrap(ctx, r.title[l], 100, 250 + b.y + lh + 110, 760, 72, 3);
-    more(100, H - 100, PAPER);
+    more(100, PAPER, b.bg);
   }
 
   if (kind === 'project') {
@@ -234,8 +252,10 @@ export async function posterTexture(id: string, l: Locale, font: string) {
     while (ctx.measureText(longest).width > max && size > 60) ctx.font = f(600, (size -= 6));
     const lines = wrap(ctx, p.name, x, 300, max, size * 0.95, 3);
     ctx.font = f(500, 48);
-    wrap(ctx, p.tagline[l], x, 300 + lines * size * 0.95 + 40, max, 60, 4);
-    more(x, H - 90);
+    // as many lines of tagline as fit above the button
+    const ty = 300 + lines * size * 0.95 + 40;
+    wrap(ctx, p.tagline[l], x, ty, max, 60, Math.max(1, Math.min(4, Math.floor((MORE_TOP - 50 - ty) / 60) + 1)));
+    more(x);
   }
 
   const tex = new THREE.CanvasTexture(c);
