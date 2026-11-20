@@ -1,0 +1,27 @@
+README.md
+  s_46a47c0460b7a4::t_47e077ce9bf50b 1,38-42
+infra/rewrite.js
+  s_46a47c0460b7a4::t_1cf507e407c7a2 7
+infra/site.tf
+  s_46a47c0460b7a4::t_d890eeb9ce56e5 1,4,8-10,51-52,57,190
+infra/variables.tf
+  s_46a47c0460b7a4::t_bf22ba84d15235 7-12,14-16
+src/content/profile.ts
+  s_46a47c0460b7a4::t_59a40f7d3b06a7 8
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "a050e7959764d3ad0a6e2ffe386f3a710bd0fb81",
+  "prompts": {},
+  "sessions": {
+    "s_46a47c0460b7a4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_46a47c0460b7a4",
+        "model": "unknown"
+      },
+      "human_author": "JorenNagels <joren.nagels@aviv-group.com>"
+    }
+  }
+}
