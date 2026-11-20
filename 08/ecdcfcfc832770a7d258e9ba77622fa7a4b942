@@ -1,0 +1,21 @@
+src/components/street/copy.ts
+  s_3678a65f7f0519::t_484b1259e0f3c1 5
+src/content/profile.ts
+  s_3678a65f7f0519::t_3d9d843df11801 9,15,19-20,24-25,33,53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "08ecdcfcfc832770a7d258e9ba77622fa7a4b942",
+  "prompts": {},
+  "sessions": {
+    "s_3678a65f7f0519": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_3678a65f7f0519",
+        "model": "unknown"
+      },
+      "human_author": "JorenNagels <joren.nagels@aviv-group.com>"
+    }
+  }
+}
