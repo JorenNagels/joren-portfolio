@@ -1,4 +1,4 @@
-# nagels.dev: CV & portfolio
+# joren.nagels.dev: CV & portfolio
 
 My website and CV, in **Dutch and English**, built from a single source.
 
@@ -35,9 +35,11 @@ only gets filled in when the CV is exported to PDF, outside this repo.
 `out/` is plain static HTML. `/` picks NL or EN from the browser language.
 
 It runs on AWS (account `nagels-dev`), all defined in `infra/` (Terraform): a private S3 bucket
-behind CloudFront at https://nagels.dev, with a free ACM certificate and Route 53 DNS. A CloudFront
-Function maps `/nl/` to `nl/index.html` (S3 has no directory index) and redirects `www` and
-slash-less URLs.
+behind CloudFront at https://joren.nagels.dev, with a free ACM certificate and Route 53 DNS. A
+CloudFront Function maps `/nl/` to `nl/index.html` (S3 has no directory index), 301s the two other
+names on the certificate (`nagels.dev` and `www.nagels.dev`) to `joren.nagels.dev`, and redirects
+slash-less URLs. The hostname lives in `infra/variables.tf` (`domain`) and, for the site's own
+canonical and OG URLs, in `src/content/profile.ts` (`person.site`).
 
 - **Push to `main`**: nothing is deployed.
 - **Push a tag `v1`, `v2`, ... made on main** (`git tag v3 && git push origin v3`): GitHub Actions

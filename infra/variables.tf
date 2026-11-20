@@ -4,9 +4,16 @@ variable "account_id" {
   default     = "030171611942"
 }
 
+variable "zone" {
+  description = "The Route 53 hosted zone, from the domain registration. The site lives on a subdomain of it."
+  type        = string
+  default     = "nagels.dev"
+}
+
 variable "domain" {
-  type    = string
-  default = "nagels.dev"
+  description = "The site's canonical hostname. The zone apex and www redirect to it."
+  type        = string
+  default     = "joren.nagels.dev"
 }
 
 variable "github_sub" {

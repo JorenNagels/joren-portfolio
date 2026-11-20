@@ -4,7 +4,7 @@ function handler(event) {
   var uri = request.uri;
   var host = request.headers.host ? request.headers.host.value : '';
 
-  // www.nagels.dev/x → nagels.dev/x
+  // nagels.dev/x and www.nagels.dev/x → joren.nagels.dev/x
   if (host !== '${domain}') {
     return redirect('https://${domain}' + uri + query(request.querystring));
   }

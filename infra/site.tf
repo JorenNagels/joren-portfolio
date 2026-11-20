@@ -1,11 +1,13 @@
-# nagels.dev: the static export in out/ lives in a private S3 bucket, served only through CloudFront.
+# joren.nagels.dev: the static export in out/ lives in a private S3 bucket, served only through CloudFront.
 
 data "aws_route53_zone" "site" {
-  name = var.domain # created by the Route 53 domain registration, not by Terraform
+  name = var.zone # created by the Route 53 domain registration, not by Terraform
 }
 
 locals {
-  hostnames = [var.domain, "www.${var.domain}"]
+  # The site answers on all three; the CloudFront Function 301s the other two to var.domain.
+  redirects = [var.zone, "www.${var.zone}"]
+  hostnames = concat([var.domain], local.redirects)
 }
 
 # ---------------------------------------------------------------------------------------------
@@ -46,13 +48,13 @@ resource "aws_s3_bucket_policy" "site" {
 }
 
 # ---------------------------------------------------------------------------------------------
-# Certificate (free) for nagels.dev + www, validated through DNS. .dev is HSTS-preloaded, so the
-# site only ever loads over HTTPS.
+# Certificate (free) for joren.nagels.dev + the names that redirect to it, validated through DNS.
+# .dev is HSTS-preloaded, so the site only ever loads over HTTPS.
 
 resource "aws_acm_certificate" "site" {
   provider                  = aws.us_east_1
   domain_name               = var.domain
-  subject_alternative_names = ["www.${var.domain}"]
+  subject_alternative_names = local.redirects
   validation_method         = "DNS"
 
   lifecycle {
@@ -185,7 +187,7 @@ resource "aws_cloudfront_distribution" "site" {
 }
 
 # ---------------------------------------------------------------------------------------------
-# DNS: nagels.dev and www.nagels.dev → CloudFront (alias queries to CloudFront are free)
+# DNS: joren.nagels.dev, nagels.dev and www.nagels.dev → CloudFront (alias queries are free)
 
 resource "aws_route53_record" "site" {
   for_each = {

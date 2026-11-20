@@ -5,7 +5,7 @@ export const person = {
   email: 'njoren@gmail.com',
   github: 'https://github.com/JorenNagels',
   linkedin: 'https://www.linkedin.com/in/joren-nagels-4223261ba/' as string | undefined,
-  site: 'https://nagels.dev',
+  site: 'https://joren.nagels.dev',
   photo: '/joren.jpg', // stand-in from the 2023 CV: replace public/joren.jpg with a new square photo
   location: { nl: 'Gent', en: 'Ghent' } satisfies L,
   // Phone and date of birth are deliberately NOT here: this file is published.
