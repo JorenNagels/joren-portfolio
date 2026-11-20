@@ -6,23 +6,23 @@ export const person = {
   github: 'https://github.com/JorenNagels',
   linkedin: 'https://www.linkedin.com/in/joren-nagels-4223261ba/' as string | undefined,
   site: 'https://joren.nagels.dev',
-  photo: '/joren.jpg', // stand-in from the 2023 CV: replace public/joren.jpg with a new square photo
+  photo: '/joren.jpg', // square crop from a wedding photo, July 2025
   location: { nl: 'Gent', en: 'Ghent' } satisfies L,
   // Phone and date of birth are deliberately NOT here: this file is published.
   // The PDF export injects the phone number into the PDF only; it is never on the site.
 };
 
-export const headline: L = { nl: 'Full-stack developer', en: 'Full-stack developer' };
+export const headline: L = { nl: 'Software engineer', en: 'Software engineer' };
 
 /** Meta description and the line under the name on the CV. */
 export const intro: L = {
-  nl: 'Full-stack developer in Gent. Werkt sinds 2021 aan Realo, nu deel van Immoweb.',
-  en: 'Full-stack developer in Ghent. Working on Realo since 2021, now part of Immoweb.',
+  nl: 'Software engineer in Gent. Werkt sinds 2021 aan Realo, nu deel van Immoweb.',
+  en: 'Software engineer in Ghent. Working on Realo since 2021, now part of Immoweb.',
 };
 
 export const summary: L = {
-  nl: 'Full-stack developer uit Gent. Sinds 2021 werk ik aan Realo, een Belgisch vastgoedplatform. Ik werk vooral in TypeScript, React en PHP, en heb wat ervaring met AWS. Naast mijn job bouw ik websites en apps voor kleine zaken.',
-  en: 'Full-stack developer from Ghent. I’ve worked on Realo, a Belgian property platform, since 2021. I work mostly in TypeScript, React and PHP, and have some experience with AWS. Outside work I build websites and apps for small businesses.',
+  nl: 'Software engineer uit Gent. Sinds 2021 werk ik aan Realo, een Belgisch vastgoedplatform. Ik werk vooral in TypeScript, React en PHP, en heb wat ervaring met AWS. Naast mijn job bouw ik websites en apps voor kleine zaken.',
+  en: 'Software engineer from Ghent. I’ve worked on Realo, a Belgian property platform, since 2021. I work mostly in TypeScript, React and PHP, and have some experience with AWS. Outside work I build websites and apps for small businesses.',
 };
 
 export const experience: Role[] = [
@@ -30,7 +30,7 @@ export const experience: Role[] = [
     company: 'Immoweb',
     companyNote: { nl: 'AVIV Group', en: 'AVIV Group' },
     url: 'https://www.immoweb.be',
-    title: { nl: 'Full-stack developer', en: 'Full-stack developer' },
+    title: { nl: 'Software engineer', en: 'Software engineer' },
     start: '2026-04',
     highlights: [
       {
@@ -50,7 +50,7 @@ export const experience: Role[] = [
   {
     company: 'Realo',
     url: 'https://www.realo.be',
-    title: { nl: 'Full-stack developer', en: 'Full-stack developer' },
+    title: { nl: 'Software engineer', en: 'Software engineer' },
     start: '2021-11',
     end: '2026-04',
     highlights: [

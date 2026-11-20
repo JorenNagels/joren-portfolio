@@ -2,7 +2,7 @@ import type { L } from '@/content/types';
 
 // Words used in the street itself: posters, captions, the panel and the ending.
 export const streetCopy = {
-  role: { nl: 'Full-stack developer', en: 'Full-stack developer' },
+  role: { nl: 'Software engineer', en: 'Software engineer' },
   loadHouses: { nl: 'De huizen rechtzetten', en: 'Propping up the houses' },
   loadBoat: { nl: 'De boot te water laten', en: 'Putting the boat in the water' },
   scroll: { nl: 'Scroll om te varen', en: 'Scroll to sail' },
