@@ -1,0 +1,43 @@
+README.md
+  s_6f99e5f62d261c::t_7d7c387ef1928f 15-17,31,37-54
+infra/site.tf
+  s_6f99e5f62d261c::t_d673bb32f71fa2 207-218
+infra/variables.tf
+  s_6f99e5f62d261c::t_f7b0fdefe8377c 29-44
+package.json
+  s_6f99e5f62d261c::t_6766f14c82cf5f 10-11
+public/icon.svg
+  s_6f99e5f62d261c::t_ae8cc780d683bf 1-7
+scripts/og.mjs
+  s_6f99e5f62d261c::t_a6dde8fa20d879 1-61
+src/app/(root)/page.tsx
+  s_6f99e5f62d261c::t_3ddbfa64bf0b55 3-4,6-7,9-15
+src/app/[locale]/cv/page.tsx
+  s_6f99e5f62d261c::t_989d23af71cd79 9,11-16,24-27
+src/app/[locale]/layout.tsx
+  s_6f99e5f62d261c::t_51f5714750d642 7,19-29
+src/app/[locale]/page.tsx
+  s_6f99e5f62d261c::t_4170e07f92360d 1,13-18,25-29
+src/app/robots.ts
+  s_6f99e5f62d261c::t_57282f3801417b 1-17
+src/app/sitemap.ts
+  s_6f99e5f62d261c::t_9cca41841378be 1-41
+src/lib/seo.ts
+  s_6f99e5f62d261c::t_c8c3269fc854f1 1-62
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "f46740680c8d820b4d4c8ae6e3ecfe10dcc6a0b6",
+  "prompts": {},
+  "sessions": {
+    "s_6f99e5f62d261c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_6f99e5f62d261c",
+        "model": "unknown"
+      },
+      "human_author": "Joren Nagels <njoren@gmail.com>"
+    }
+  }
+}
