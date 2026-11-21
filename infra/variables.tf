@@ -26,3 +26,19 @@ variable "github_sub" {
   type        = string
   default     = "repo:JorenNagels@37642555/joren-portfolio@1456589136"
 }
+
+variable "verify_txt" {
+  description = <<-EOT
+    Domain-verification TXT records, as { name = [values] }.
+
+    The name is the domain of the property being verified, not necessarily the site: a Google Search Console
+    domain property on nagels.dev is verified at the zone apex and covers every subdomain under it, including
+    joren.nagels.dev. Route 53 keeps one TXT record set per name, so every value for a name — a second search
+    engine, a renewed token — belongs in the same list rather than in a second record.
+  EOT
+  type        = map(list(string))
+  default = {
+    # Google Search Console, domain property nagels.dev (added November 2026).
+    "nagels.dev" = ["google-site-verification=QASDNHLe-vPk6xFAPNYfj64-1rvMvW4jY5Z-yPMpo-M"]
+  }
+}

@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Joren Nagels">
+  <!-- The boat from the home page, cut down to the few shapes that still read at 16 pixels. -->
+  <rect width="32" height="32" rx="7" fill="#0b0d12"/>
+  <path d="M16.8 4.5 L16.8 18 L26.5 18 Z" fill="#ffb066"/>
+  <path d="M15.2 8.5 L15.2 18 L7 18 Z" fill="#ffb066" opacity=".72"/>
+  <path d="M4 20 H28 L24.2 26.6 Q16 28.4 7.8 26.6 Z" fill="#ff8a3d"/>
+</svg>

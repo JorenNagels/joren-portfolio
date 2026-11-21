@@ -6,8 +6,14 @@ import { education, experience, headline, interests, languages, learning, person
 import { projects } from '@/content/projects';
 import type { Locale } from '@/content/types';
 import { period, ui } from '@/content/ui';
+import { alternates, personSchema } from '@/lib/seo';
 
-export const metadata: Metadata = { title: 'CV' };
+// Its own canonical: this page is worth indexing in its own right, and it is the one a recruiter
+// searching the name wants. It used to inherit the home page's canonical and ask to be dropped.
+export async function generateMetadata({ params }: { params: Promise<{ locale: Locale }> }): Promise<Metadata> {
+  const { locale } = await params;
+  return { title: 'CV', alternates: alternates(locale, 'cv/') };
+}
 
 export default async function CvPage({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale: l } = await params;
@@ -15,6 +21,10 @@ export default async function CvPage({ params }: { params: Promise<{ locale: Loc
 
   return (
     <div className="min-h-dvh bg-[#16181d] pb-16 print:bg-white print:pb-0">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(personSchema(l)) }}
+      />
       <div className="no-print mx-auto flex h-16 max-w-[210mm] items-center justify-between gap-3 px-4 text-sm">
         <Link href={`/${l}/`} className="hover:underline">{ui.cv.back[l]}</Link>
         <div className="flex items-center gap-5">

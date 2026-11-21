@@ -4,6 +4,7 @@ import '../globals.css';
 import { fontVars } from '../fonts';
 import { headline, intro, person } from '@/content/profile';
 import { isLocale, locales } from '@/content/types';
+import { ogImage } from '@/lib/seo';
 
 export const dynamicParams = false;
 export const generateStaticParams = () => locales.map((locale) => ({ locale }));
@@ -15,8 +16,17 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     metadataBase: new URL(person.site),
     title: { default: `${person.name} · ${headline[locale]}`, template: `%s · ${person.name}` },
     description: intro[locale],
-    alternates: { canonical: `/${locale}/`, languages: { nl: '/nl/', en: '/en/' } },
-    openGraph: { title: person.name, description: intro[locale], locale: locale === 'nl' ? 'nl_BE' : 'en_GB', type: 'profile' },
+    // No `alternates` here: canonical and hreflang are per page, set in each page's own generateMetadata.
+    // Setting them on the layout made every page below claim the home page as its real version.
+    icons: { icon: [{ url: '/icon.svg', type: 'image/svg+xml' }], apple: '/apple-icon.png' },
+    openGraph: {
+      title: person.name,
+      description: intro[locale],
+      locale: locale === 'nl' ? 'nl_BE' : 'en_GB',
+      type: 'profile',
+      images: [ogImage],
+    },
+    twitter: { card: 'summary_large_image', title: person.name, description: intro[locale], images: [ogImage] },
   };
 }
 

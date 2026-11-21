@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LangSwitch } from '@/components/LangSwitch';
 import { Debug } from '@/components/Debug';
@@ -9,12 +10,23 @@ import { experience, person } from '@/content/profile';
 import { experiments, projects } from '@/content/projects';
 import type { Locale } from '@/content/types';
 import { period, ui } from '@/content/ui';
+import { alternates, personSchema } from '@/lib/seo';
+
+export async function generateMetadata({ params }: { params: Promise<{ locale: Locale }> }): Promise<Metadata> {
+  const { locale } = await params;
+  return { alternates: alternates(locale) };
+}
 
 export default async function Home({ params }: { params: Promise<{ locale: Locale }> }) {
   const { locale: l } = await params;
 
   return (
     <>
+      {/* Tells search engines who the site is about, and that the GitHub and LinkedIn profiles are the same person. */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(personSchema(l)) }}
+      />
       {/* only with ?debug=1 in the address, for working out what a phone we cannot reach is doing */}
       <Debug />
       <Motion />

@@ -204,3 +204,15 @@ resource "aws_route53_record" "site" {
     evaluate_target_health = false
   }
 }
+
+# Proof to Google (and anything else that asks) that the zone is ours. Not used for routing: these names
+# already answer with the alias records above, and a TXT alongside them changes nothing for visitors.
+resource "aws_route53_record" "verify" {
+  for_each = var.verify_txt
+
+  zone_id = data.aws_route53_zone.site.zone_id
+  name    = each.key
+  type    = "TXT"
+  ttl     = 300
+  records = each.value
+}
