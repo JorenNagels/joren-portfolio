@@ -1,0 +1,27 @@
+README.md
+  s_6d84bdbf658c84::t_f9e96c37dbab99 18
+public/icon.svg
+  s_6d84bdbf658c84::t_231edaa6ac2803 2-8
+scripts/og.mjs
+  s_6d84bdbf658c84::t_35f8aac6e4213c 43-45,47
+src/components/street/Street.tsx
+  s_6d84bdbf658c84::t_25e157fa3ab680 12,171,212
+src/lib/title.ts
+  s_6d84bdbf658c84::t_dab020c2f7736e 1-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "25c3df1aca8d4bfcb506318ca8c76e155129bc23",
+  "prompts": {},
+  "sessions": {
+    "s_6d84bdbf658c84": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_6d84bdbf658c84",
+        "model": "unknown"
+      },
+      "human_author": "Joren Nagels <njoren@gmail.com>"
+    }
+  }
+}
