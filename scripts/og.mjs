@@ -40,9 +40,11 @@ const card = `<!doctype html><html><head><meta charset="utf-8">
 </div></body></html>`;
 
 const icon = `<!doctype html><html><head><meta charset="utf-8"><style>
-  *{margin:0;padding:0}body{width:180px;height:180px;background:#0b0d12}
+  /* iOS masks this to its own rounded square, so the page carries the icon's cream right to the
+     edge and the round mark in icon.svg simply disappears into it. */
+  *{margin:0;padding:0}body{width:180px;height:180px;background:#efeee9}
   svg{width:180px;height:180px;display:block}
-</style></head><body>${readFileSync('public/icon.svg', 'utf8').replace('rx="7"', 'rx="0"')}</body></html>`;
+</style></head><body>${readFileSync('public/icon.svg', 'utf8')}</body></html>`;
 
 const browser = await chromium.launch();
 

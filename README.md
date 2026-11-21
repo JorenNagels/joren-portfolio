@@ -15,6 +15,7 @@ scripts/screenshots.mjs   ← refreshes project screenshots from the live sites
 src/lib/seo.ts            ← canonical + hreflang per page, and the Person schema search engines read
 src/app/sitemap.ts        ← /sitemap.xml; src/app/robots.ts is /robots.txt
 scripts/og.mjs            ← builds public/og.jpg (the link preview card) and the app icon
+src/lib/title.ts          ← the boat sails the tab title as you go down the Leie
 ```
 
 Every text is an `{ nl, en }` pair, so the two languages can't drift apart: TypeScript fails the

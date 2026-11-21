@@ -9,6 +9,7 @@ import { projects } from '@/content/projects';
 import type { Locale } from '@/content/types';
 import { period, ui } from '@/content/ui';
 import { onFrame } from '@/lib/ticker';
+import { restoreTitle, sailTitle } from '@/lib/title';
 import { BeatArt } from '../BeatArt';
 import { streetCopy as t } from './copy';
 import { kindOf, labelOf } from './labels';
@@ -167,6 +168,7 @@ export function Street({ locale: l }: { locale: Locale }) {
       if (drawn && drawn.p === p && drawn.focus === s.focus) return;
       drawn = { p, focus: s.focus };
       s.p = p;
+      sailTitle(p);
       s.intro = clamp01(p / INTRO);
       s.outro = clamp01((p - OUTRO) / (1 - OUTRO));
       s.x = xAt((p - INTRO) / (OUTRO - INTRO));
@@ -207,6 +209,7 @@ export function Street({ locale: l }: { locale: Locale }) {
     return () => {
       off();
       io.disconnect();
+      restoreTitle();
     };
     // xAt only reads a ref
     // eslint-disable-next-line react-hooks/exhaustive-deps

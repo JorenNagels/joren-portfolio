@@ -1,7 +1,9 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" role="img" aria-label="Joren Nagels">
-  <!-- The boat from the home page, cut down to the few shapes that still read at 16 pixels. -->
-  <rect width="32" height="32" rx="7" fill="#0b0d12"/>
-  <path d="M16.8 4.5 L16.8 18 L26.5 18 Z" fill="#ffb066"/>
-  <path d="M15.2 8.5 L15.2 18 L7 18 Z" fill="#ffb066" opacity=".72"/>
-  <path d="M4 20 H28 L24.2 26.6 Q16 28.4 7.8 26.6 Z" fill="#ff8a3d"/>
+  <!-- JN drawn as paths, not text: a favicon renders with no webfont, and Helvetica and Arial set
+       these two letters to different widths, which would shift them off centre. -->
+  <circle cx="16" cy="16" r="16" fill="#efeee9"/>
+  <g fill="#121212" transform="translate(16 16) scale(0.85) translate(-16 -16)">
+    <path transform="translate(4 7)" d="M9 0 V13.2 C9 16.6 7 18.5 4.5 18.5 C2 18.5 0 16.6 0 13.4 V11.5 H3.6 V13.4 C3.6 14.4 4 14.9 4.5 14.9 C5.1 14.9 5.4 14.3 5.4 13.2 V0 Z"/>
+    <path transform="translate(17 7)" d="M0 18 V0 H3.7 L7.4 9.3 V0 H11 V18 H7.3 L3.6 8.9 V18 Z"/>
+  </g>
 </svg>
