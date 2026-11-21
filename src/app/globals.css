@@ -100,6 +100,12 @@ html.walk .plain {
 }
 
 @media print {
+  /* :root, not html: the dark one above is a :root rule and would win on specificity. Left dark,
+     Chromium paints the whole sheet (the @page margins included) with its dark base colour, and
+     the PDF comes out with no margins at all. */
+  :root {
+    color-scheme: light;
+  }
   html,
   body {
     background: #fff !important;
