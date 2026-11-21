@@ -1,0 +1,19 @@
+src/app/globals.css
+  s_cf9b69006afa12::t_1a0cf002fff0af 103-108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8a75568636c850bc292939692db72827bc644038",
+  "prompts": {},
+  "sessions": {
+    "s_cf9b69006afa12": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_cf9b69006afa12",
+        "model": "unknown"
+      },
+      "human_author": "Joren Nagels <njoren@gmail.com>"
+    }
+  }
+}
