@@ -59,7 +59,10 @@ function Plain({ l }: { l: Locale }) {
       <h2 className="mt-16 text-2xl font-semibold">{ui.work.title[l]}</h2>
       {experience.map((r) => (
         <section key={r.company} className="mt-8">
-          <h3 className="text-xl font-semibold">{r.company}</h3>
+          <h3 className="text-xl font-semibold">
+            {r.company}
+            {r.companyNote && <span className="font-normal text-muted"> ({r.companyNote[l]})</span>}
+          </h3>
           <p className="text-muted">{r.title[l]}, {period(r.start, r.end, l)}</p>
           <ul className="mt-3 list-disc space-y-2 pl-5">
             {r.highlights.map((h) => <li key={h.en}>{h[l]}</li>)}

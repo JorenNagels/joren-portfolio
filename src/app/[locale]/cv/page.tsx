@@ -2,7 +2,7 @@ import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LangSwitch } from '@/components/LangSwitch';
 import { PrintButton } from '@/components/PrintButton';
-import { education, experience, headline, interests, languages, learning, person, skills, summary } from '@/content/profile';
+import { cvExperience, education, headline, interests, languages, learning, person, skills, summary } from '@/content/profile';
 import { projects } from '@/content/projects';
 import type { Locale } from '@/content/types';
 import { period, ui } from '@/content/ui';
@@ -58,7 +58,7 @@ export default async function CvPage({ params }: { params: Promise<{ locale: Loc
           <div>
             <CvHeading>{ui.cv.experience[l]}</CvHeading>
             <div className="space-y-5">
-              {experience.map((role) => (
+              {cvExperience.map((role) => (
                 <section key={role.company}>
                   <div className="flex flex-wrap items-baseline justify-between gap-x-3 break-after-avoid">
                     <h3 className="text-[15px] font-semibold">

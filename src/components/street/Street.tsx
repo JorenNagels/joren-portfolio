@@ -713,6 +713,7 @@ function WorkPanel({ id, l }: { id: string; l: Locale }) {
       <p className="text-sm text-[#76736a]">{period(r.start, r.end, l)}</p>
       <h2 className="mt-2 text-[2.25rem] font-semibold leading-[1.05] tracking-[-0.04em] sm:mt-3 sm:text-5xl">{r.company}</h2>
       <p className="mt-1.5 text-lg sm:mt-2">{r.title[l]}</p>
+      {r.companyNote && <p className="mt-1 text-sm text-[#76736a]">{r.companyNote[l]}</p>}
       <h3 className="mt-6 text-sm font-semibold sm:mt-8">{t.highlights[l]}</h3>
       <ul className="mt-3 space-y-4 leading-relaxed">
         {r.highlights.map((h) => (
