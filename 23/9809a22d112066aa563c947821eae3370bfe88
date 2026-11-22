@@ -1,0 +1,25 @@
+src/app/[locale]/cv/page.tsx
+  s_c9e85aea17e144::t_293c7c9de2509c 5,61
+src/app/[locale]/page.tsx
+  s_c9e85aea17e144::t_43d05084139a49 62-65
+src/components/street/Street.tsx
+  s_c9e85aea17e144::t_50af3bc876629d 716
+src/content/profile.ts
+  s_c9e85aea17e144::t_e166cc73000d93 28-35,37-67,69-111,113-116,118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "239809a22d112066aa563c947821eae3370bfe88",
+  "prompts": {},
+  "sessions": {
+    "s_c9e85aea17e144": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_c9e85aea17e144",
+        "model": "unknown"
+      },
+      "human_author": "Joren Nagels <njoren@gmail.com>"
+    }
+  }
+}
