@@ -1,0 +1,28 @@
+src/app/[locale]/cv/page.tsx
+  h_45caa59cb3f648 4,31-34
+src/app/[locale]/page.tsx
+  h_45caa59cb3f648 35
+src/components/Music.tsx
+  h_45caa59cb3f648 213-218,264,274,283,285-286,292
+src/components/street/Street.tsx
+  h_45caa59cb3f648 651
+src/components/street/StreetScene.tsx
+  h_45caa59cb3f648 18,309,313-315,319-324,334,340,377,808
+src/components/street/copy.ts
+  h_45caa59cb3f648 5
+src/components/street/posters.ts
+  h_45caa59cb3f648 172-179,191-192,197-216,280-289
+src/content/profile.ts
+  h_45caa59cb3f648 15,75,84
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "e4b22dc3c1ab5c311d58485524c3f092c34a2ba3",
+  "prompts": {},
+  "humans": {
+    "h_45caa59cb3f648": {
+      "author": "Joren Nagels <njoren@gmail.com>"
+    }
+  }
+}
