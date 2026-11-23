@@ -4,7 +4,7 @@ import '../globals.css';
 import { fontVars } from '../fonts';
 import { headline, intro, person } from '@/content/profile';
 import { isLocale, locales } from '@/content/types';
-import { ogImage } from '@/lib/seo';
+import { icons, ogImage } from '@/lib/seo';
 
 export const dynamicParams = false;
 export const generateStaticParams = () => locales.map((locale) => ({ locale }));
@@ -18,7 +18,7 @@ export async function generateMetadata({ params }: { params: Promise<{ locale: s
     description: intro[locale],
     // No `alternates` here: canonical and hreflang are per page, set in each page's own generateMetadata.
     // Setting them on the layout made every page below claim the home page as its real version.
-    icons: { icon: [{ url: '/icon.svg', type: 'image/svg+xml' }], apple: '/apple-icon.png' },
+    icons,
     openGraph: {
       title: person.name,
       description: intro[locale],

@@ -1,7 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { headline, intro, person } from '@/content/profile';
-import { ogImage } from '@/lib/seo';
+import { icons, ogImage } from '@/lib/seo';
 
 // This page only picks a language and redirects, but it is the URL people type and link to, so it carries
 // real metadata of its own: a description, a self-canonical, and x-default for visitors we have no language for.
@@ -10,7 +10,7 @@ export const metadata: Metadata = {
   title: `${person.name} · ${headline.en}`,
   description: intro.en,
   alternates: { canonical: '/', languages: { nl: '/nl/', en: '/en/', 'x-default': '/' } },
-  icons: { icon: [{ url: '/icon.svg', type: 'image/svg+xml' }], apple: '/apple-icon.png' },
+  icons,
   openGraph: { title: person.name, description: intro.en, type: 'profile', images: [ogImage] },
   twitter: { card: 'summary_large_image', title: person.name, description: intro.en, images: [ogImage] },
 };

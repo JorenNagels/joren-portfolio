@@ -1,3 +1,4 @@
+import type { Metadata } from 'next';
 import { education, experience, headline, intro, person, skills } from '@/content/profile';
 import { locales, type Locale } from '@/content/types';
 
@@ -19,6 +20,22 @@ export const alternates = (locale: Locale, sub = '') => ({
     ...(sub === '' && { 'x-default': '/' }),
   },
 });
+
+/**
+ * The favicons, one set for both the home page and every page under a locale.
+ *
+ * The SVG is what browsers draw, but Google Search does not read one: its list is BMP, GIF, ICO, PNG,
+ * JPEG, PPM and TIFF, so the same mark also ships as a PNG (square and over 48px, as Google asks) and
+ * as a favicon.ico at the root for anything that still goes looking for one. Built by `npm run og`.
+ */
+export const icons: Metadata['icons'] = {
+  icon: [
+    { url: '/icon.svg', type: 'image/svg+xml' },
+    { url: '/icon-96.png', type: 'image/png', sizes: '96x96' },
+  ],
+  shortcut: '/favicon.ico',
+  apple: '/apple-icon.png',
+};
 
 /** The card LinkedIn, Slack and WhatsApp draw when the link is pasted. Built by `npm run og`. */
 export const ogImage = {

@@ -1,7 +1,8 @@
-// Builds the share card (public/og.jpg) and the iOS home-screen icon (public/apple-icon.png).
+// Builds the share card (public/og.jpg), the iOS home-screen icon (public/apple-icon.png) and the
+// raster favicons (public/icon-96.png, public/favicon.ico).
 // Run with `npm run og` after changing the name, the headline or the photo.
 import { chromium } from 'playwright';
-import { readFileSync } from 'node:fs';
+import { readFileSync, writeFileSync } from 'node:fs';
 
 // Read the two lines straight out of the CV content, so the card cannot drift from the site.
 const profile = readFileSync('src/content/profile.ts', 'utf8');
@@ -59,5 +60,50 @@ await page.setViewportSize({ width: 180, height: 180 });
 await page.setContent(icon, { waitUntil: 'load' });
 await page.screenshot({ path: 'public/apple-icon.png', type: 'png' });
 console.log('ok   public/apple-icon.png 180x180');
+
+// Google Search does not take an SVG favicon: its list is BMP, GIF, ICO, PNG, JPEG, PPM and TIFF.
+// So the same mark is rasterised — one 96x96 PNG (Google asks for square and larger than 48px) and
+// a classic multi-size favicon.ico for anything that still looks for one at the root.
+const mark = `<!doctype html><html><head><meta charset="utf-8"><style>
+  /* Transparent here, unlike the iOS icon: the round mark keeps its own cream and the corners stay
+     clear, the way a favicon sits on a tab or a search result. */
+  *{margin:0;padding:0}
+  svg{width:100vw;height:100vh;display:block}
+</style></head><body>${readFileSync('public/icon.svg', 'utf8')}</body></html>`;
+
+const markPng = async (size) => {
+  await page.setViewportSize({ width: size, height: size });
+  await page.setContent(mark, { waitUntil: 'load' });
+  return page.screenshot({ type: 'png', omitBackground: true });
+};
+
+writeFileSync('public/icon-96.png', await markPng(96));
+console.log('ok   public/icon-96.png  96x96');
+
+// An .ico is a 6-byte header, one 16-byte directory entry per size, then the images themselves —
+// PNG payloads, which every browser since IE11 reads.
+const icoSizes = [16, 32, 48];
+const icoImages = [];
+for (const size of icoSizes) icoImages.push(await markPng(size));
+
+const icoHeader = Buffer.alloc(6);
+icoHeader.writeUInt16LE(1, 2); // type 1 = icon
+icoHeader.writeUInt16LE(icoSizes.length, 4);
+
+let icoOffset = icoHeader.length + 16 * icoSizes.length;
+const icoDir = icoSizes.map((size, i) => {
+  const entry = Buffer.alloc(16);
+  entry[0] = size; // width and height; 0 would mean 256
+  entry[1] = size;
+  entry.writeUInt16LE(1, 4); // colour planes
+  entry.writeUInt16LE(32, 6); // bits per pixel
+  entry.writeUInt32LE(icoImages[i].length, 8);
+  entry.writeUInt32LE(icoOffset, 12);
+  icoOffset += icoImages[i].length;
+  return entry;
+});
+
+writeFileSync('public/favicon.ico', Buffer.concat([icoHeader, ...icoDir, ...icoImages]));
+console.log(`ok   public/favicon.ico  ${icoSizes.join('/')}`);
 
 await browser.close();
