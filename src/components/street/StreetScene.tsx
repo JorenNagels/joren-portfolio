@@ -104,8 +104,6 @@ function snapToShadowPixels(l: THREE.DirectionalLight) {
   l.position.add(shift);
 }
 
-// Render sizes to fall back through when frames take too long.
-const SIZES = [2, 1.5, 1];
 // A phone starts at every pixel its screen has (three to the point on most) and steps down to two, then one and a
 // half, if frames run slow. Never below that: the picture is stretched to fit the screen, and on a phone, at one, the
 // ink lines and the title in the sky turn into staircases.
@@ -125,6 +123,23 @@ const fits = (ratio: number) => {
   return Math.max(PHONE_SIZES[PHONE_SIZES.length - 1], Math.min(ratio, Math.sqrt(PHONE_PIXELS / px)));
 };
 const firstSize = () => (matchMedia('(pointer: coarse)').matches ? fits(Math.min(devicePixelRatio, PHONE_SIZES[0])) : 2);
+
+/**
+ * The render sizes to fall back through when frames take too long, which are not the same rungs on every screen.
+ *
+ * On a screen with two device pixels to the point, two *is* native: the street is drawn pixel for pixel and the
+ * colour pass carries four MSAA samples for its edges, so one and a half really is a step down from it and one is
+ * another.
+ *
+ * On a screen with one, two is supersampling — four times the pixels, scaled down, and that scaling down is the
+ * only thing smoothing the ink lines there, since MSAA cannot touch them (they are worked out from the normal
+ * buffer after the geometry has gone). A machine that cannot hold that has nothing to gain from one and a half,
+ * because below two the colour pass turns MSAA back on: one and a half with four samples is 82MB of colour buffer
+ * against two's 58MB, over four megapixels instead of seven but every one of them rasterised four times. It is
+ * the same bill in a different envelope. So on those screens the rung does not exist — it is two, or native with
+ * MSAA, and nothing in between.
+ */
+const sizeLadder = (): number[] => (matchMedia('(pointer: coarse)').matches ? PHONE_SIZES : devicePixelRatio >= 2 ? [2, 1.5, 1] : [2, 1]);
 
 // How far the mouse's own look reaches: sideways, up and down (radians).
 const YAW = 0.85;
@@ -359,7 +374,7 @@ function Posters({ street, locale, state, onOpen, hovered, cue }: { street: Worl
 
 /* ---------------- Camera, light, and the ink pipeline ---------------- */
 
-function Scene({ town, state, locale, onOpen, onSlow, onLost, onReady }: { town: World; state: RefObject<StreetState>; locale: Locale; onOpen: (id: string) => void; onSlow: (dpr: number) => void; onLost: () => void; onReady: () => void }) {
+function Scene({ town, state, locale, dpr, onOpen, onSlow, onLost, onReady }: { town: World; state: RefObject<StreetState>; locale: Locale; dpr: number; onOpen: (id: string) => void; onSlow: (dpr: number) => void; onLost: () => void; onReady: () => void }) {
   const { street, towers, background } = town;
   const { camera, size, gl, scene } = useThree();
   // the people's body and clothes, made in Blender (public/people/person.glb); they appear once it is in
@@ -408,6 +423,11 @@ function Scene({ town, state, locale, onOpen, onSlow, onLost, onReady }: { town:
     [],
   );
   const coarse = useMemo(() => matchMedia('(pointer: coarse)').matches, []);
+  const steps = useMemo(sizeLadder, []);
+  // The size the map is built at, and nothing more: the effect below owns every change to it after that, so this
+  // has to keep the same identity across renders or R3F would quietly put the opening size back without
+  // disposing the map the effect had swapped in, leaving three.js drawing a 4096 viewport into a 2048 texture.
+  const shadowMap = useMemo(() => [coarse ? 2048 : 4096, coarse ? 2048 : 4096] as [number, number], [coarse]);
   const first = useMemo(() => street.posters.find((p) => p.id === STOPS[0].id) ?? null, [street]);
   const hovered = useRef<string | null>(null);
   const cue = useRef<Cue>({ want: 0, x: 0, y: 0, z: 0, push: 0, pulse: 0, id: first?.id ?? null });
@@ -481,6 +501,29 @@ function Scene({ town, state, locale, onOpen, onSlow, onLost, onReady }: { town:
     const m = sun.current?.shadow.mapSize;
     if (m) mark(`shadow map ${m.x}x${m.y} · ~${mb(m.x, m.y, 4, false).toFixed(0)}MB`);
   }, [scene, gl]);
+
+  /**
+   * The shadow map follows the ladder down.
+   *
+   * 4096 square is sixteen megapixels an update — the single largest item on the bill, and a quarter of it buys
+   * shadows that are a quarter as crisp. Worth it on a machine holding the opening size; not worth it on one that
+   * has already been stepped down, where the frame has to come from somewhere and everything else on screen is
+   * being drawn at half the density anyway.
+   *
+   * three.js never resizes a map it has already made (it only builds one when `shadow.map` is null), so the old
+   * one has to be disposed and cleared by hand for the new size to take.
+   */
+  useEffect(() => {
+    const l = sun.current;
+    if (!l) return;
+    const want = coarse || dpr < steps[0] ? 2048 : 4096;
+    if (l.shadow.mapSize.x === want) return;
+    l.shadow.mapSize.set(want, want);
+    l.shadow.map?.depthTexture?.dispose();
+    l.shadow.map?.dispose();
+    l.shadow.map = null;
+    mark(`shadow map ${want}x${want} · ~${mb(want, want, 4, false).toFixed(0)}MB`);
+  }, [dpr, coarse, steps]);
 
   /**
    * If the graphics card takes the context away, the street is over.
@@ -628,13 +671,21 @@ function Scene({ town, state, locale, onOpen, onSlow, onLost, onReady }: { town:
     const sky = skyAt(s.p);
     uniforms.uTime.value += dt;
     const q = load.current;
-    const sizes = coarse ? PHONE_SIZES : SIZES;
-    if (dt < 0.25 && q.step < sizes.length - 1 && performance.now() > q.from) {
+    if (dt < 0.25 && q.step < steps.length - 1 && performance.now() > q.from) {
       q.frames++;
       q.time += dt;
-      if (q.frames === 90) {
-        if (q.time / q.frames > 1 / 40) {
-          const next = sizes[++q.step];
+      // Thirty frames to the window, not ninety. It has to be long enough that one slow frame cannot decide it,
+      // and short enough that a machine which was never going to hold the opening size is not left sitting on it:
+      // at the fifteen frames a second this exists to catch, ninety frames was six seconds of stuttering before
+      // anything happened at all, and twelve before it reached the bottom of the ladder.
+      if (q.frames === 30) {
+        const avg = q.time / q.frames;
+        if (avg > 1 / 40) {
+          // Badly behind rather than merely short: take the whole ladder in one go. Walking down a rung at a time
+          // costs another windowful of bad frames for each rung, and a machine at fifteen a second is not going
+          // to be saved by the one just above the bottom.
+          q.step = avg > 1 / 20 ? steps.length - 1 : q.step + 1;
+          const next = steps[q.step];
           onSlow(coarse ? fits(Math.min(devicePixelRatio, next)) : Math.max(1, Math.min(devicePixelRatio, 2), next));
         }
         q.frames = 0;
@@ -862,8 +913,7 @@ function Scene({ town, state, locale, onOpen, onSlow, onLost, onReady }: { town:
       const g = gl.getContext();
       if (g.checkFramebufferStatus(g.FRAMEBUFFER) !== g.FRAMEBUFFER_COMPLETE) {
         gl.setRenderTarget(null);
-        const sizes = coarse ? PHONE_SIZES : SIZES;
-        const next = sizes.find((s) => s < gl.getPixelRatio());
+        const next = steps.find((s) => s < gl.getPixelRatio());
         // Smaller buffers next time round; there is nothing worth drawing into these ones. At the smallest size
         // there is nowhere left to go, so draw anyway rather than hold the loader up for ever.
         if (next !== undefined) {
@@ -872,9 +922,22 @@ function Scene({ town, state, locale, onOpen, onSlow, onLost, onReady }: { town:
         }
       }
     }
-    // Above 90 frames a second the shadows are redrawn every other frame; nobody sees a shadow a frame behind.
-    gl.shadowMap.needsUpdate = dt > 1 / 90 || frame.current++ % 2 === 0;
-    if (frame.current === 1) mark('first frame — everything above this line is allocated and the street drew');
+    // The shadows are redrawn every other frame. Nobody sees a shadow a sixtieth of a second behind — the sun
+    // creeps round with the scroll and the shadow camera is snapped to its own texel grid, so the picture does not
+    // even shimmer — and at 4096 square the redraw is the most expensive single thing the street does: a whole
+    // second pass over the town's geometry into sixteen megapixels, as much as the colour pass and the normals
+    // pass put together.
+    //
+    // This used to read `dt > 1 / 90 || frame.current++ % 2 === 0`, which held the saving back for screens above
+    // ninety frames a second — the one case that did not need it. At sixty the left-hand side is true on all but
+    // the odd frame, so the shadows were redrawn on nearly every one, on exactly the machines least able to
+    // afford it. And because `||` short-circuits, the counter barely moved either: once something had nudged it
+    // to 1 it stuck there, and the first-frame mark below was logged once a frame for ever — forty lines of it in
+    // the log that came back from the Windows machine this was found on, filling the debug panel's fifty and
+    // pushing anything that mattered off the top.
+    const tick = frame.current++;
+    gl.shadowMap.needsUpdate = tick % 2 === 0;
+    if (tick === 0) mark('first frame — everything above this line is allocated and the street drew');
     gl.setRenderTarget(targets.color);
     gl.clear();
     gl.render(scene, camera);
@@ -924,7 +987,7 @@ function Scene({ town, state, locale, onOpen, onSlow, onLost, onReady }: { town:
       <directionalLight
         ref={sun}
         castShadow
-        shadow-mapSize={coarse ? [2048, 2048] : [4096, 4096]}
+        shadow-mapSize={shadowMap}
         shadow-bias={-0.0004}
         shadow-normalBias={0.03}
         shadow-camera-left={-80}
@@ -1015,7 +1078,7 @@ function StreetScene(props: { state: RefObject<StreetState>; locale: Locale; act
       gl={{ antialias: false, alpha: true, toneMapping: THREE.NoToneMapping }}
       camera={{ fov: 48, near: 0.3, far: 1200, position: [-22, 32, MIDSTREAM] }}
     >
-      <Scene {...rest} town={town} onSlow={setDpr} />
+      <Scene {...rest} town={town} dpr={dpr} onSlow={setDpr} />
     </Canvas>
   );
 }
