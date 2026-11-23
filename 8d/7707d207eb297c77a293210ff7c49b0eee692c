@@ -1,0 +1,14 @@
+src/components/street/StreetScene.tsx
+  h_45caa59cb3f648 127-143,377,426-430,505-527,674,677-688,916,925-940,990,1081
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "8d7707d207eb297c77a293210ff7c49b0eee692c",
+  "prompts": {},
+  "humans": {
+    "h_45caa59cb3f648": {
+      "author": "Joren Nagels <njoren@gmail.com>"
+    }
+  }
+}
