@@ -1,0 +1,20 @@
+scripts/og.mjs
+  h_45caa59cb3f648 1-2,5,64-108
+src/app/(root)/page.tsx
+  h_45caa59cb3f648 4,13
+src/app/[locale]/layout.tsx
+  h_45caa59cb3f648 7,21
+src/lib/seo.ts
+  h_45caa59cb3f648 1,24-39
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "ab0efef05f3c6644b09f0163c3c11c07e6707eb8",
+  "prompts": {},
+  "humans": {
+    "h_45caa59cb3f648": {
+      "author": "Joren Nagels <njoren@gmail.com>"
+    }
+  }
+}
