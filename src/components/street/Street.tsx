@@ -648,7 +648,7 @@ function Panel({ id, l, onClose }: { id: string | null; l: Locale; onClose: () =
           slide in and out. On dvh it grew and shrank under your thumb as you read. */}
       <aside
         ref={sheet}
-        className={`absolute inset-x-0 bottom-0 flex max-h-[82svh] flex-col overflow-hidden rounded-t-[1.75rem] bg-[#f4f0e4] text-[#25262f] ring-[1.5px] ring-[#25262f] [will-change:transform] transition-transform duration-[560ms] ease-[cubic-bezier(.2,.8,.2,1)] sm:inset-x-auto sm:bottom-4 sm:right-4 sm:top-16 sm:max-h-none sm:w-[min(500px,42vw)] sm:rounded-2xl sm:shadow-[4px_4px_0_#25262f] ${
+        className={`absolute inset-x-0 bottom-0 flex max-h-[82svh] flex-col overflow-hidden rounded-t-[1.75rem] bg-[#f4f0e4] text-[#25262f] ring-[1.5px] ring-[#25262f] [will-change:transform] transition-transform duration-[560ms] ease-[cubic-bezier(.2,.8,.2,1)] sm:inset-x-auto sm:bottom-4 sm:right-4 sm:top-16 sm:max-h-none sm:w-[min(640px,48vw)] sm:rounded-2xl sm:shadow-[4px_4px_0_#25262f] ${
           id ? 'translate-y-0 sm:translate-x-0' : 'translate-y-[110%] sm:translate-x-[115%] sm:translate-y-0'
         }`}
         aria-hidden={!id}

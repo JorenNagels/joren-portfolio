@@ -210,8 +210,12 @@ function stop() {
 
 /** Background music for the boat trip, five songs in shuffled order that flow into each other, with the sounds of
  * the Graslei under it. It starts at the visitor's first click, tap or key press, the only thing that lets a browser
- * play sound: normally that's "Step aboard" (street/Street.tsx), which waits for one. The button opens a small panel: mute, and one volume for the music and sounds together. */
-export function Music({ locale: l }: { locale: Locale }) {
+ * play sound: normally that's "Step aboard" (street/Street.tsx), which waits for one. The button opens a small panel: mute, and one volume for the music and sounds together.
+ *
+ * The sound lives outside the component (see above), so mounting this on another page keeps the same song playing
+ * across a click on "CV": the CV page carries the button along, with `autostart` off, so it can be turned down or
+ * off there but never begins there. */
+export function Music({ locale: l, autostart = false }: { locale: Locale; autostart?: boolean }) {
   const [on, setOn] = useState(false);
   const [open, setOpen] = useState(false);
   const [vol, setVol] = useState(DEFAULTS.volume);
@@ -257,7 +261,7 @@ export function Music({ locale: l }: { locale: Locale }) {
       localStorage.removeItem('music');
     } catch {}
 
-    // Start by itself, only on the 3D trip (where the sound button is), and not if it was muted during this visit.
+    // Start by itself, only on the page with the 3D trip (`autostart`), and not if it was muted during this visit.
     // Also while an earlier try is still waiting on the browser: this click or key press is what it was waiting for.
     const wanted = () => !audible && !prefs().muted && document.documentElement.classList.contains('walk');
     const gesture = (e: Event) => {
@@ -267,7 +271,7 @@ export function Music({ locale: l }: { locale: Locale }) {
       if (wanted()) start();
     };
     const events = ['pointerup', 'touchend', 'keydown'] as const;
-    events.forEach((n) => addEventListener(n, gesture, { capture: true, passive: true }));
+    if (autostart) events.forEach((n) => addEventListener(n, gesture, { capture: true, passive: true }));
 
     const hidden = () => {
       if (!ctx || !playing) return;
@@ -276,15 +280,16 @@ export function Music({ locale: l }: { locale: Locale }) {
     };
     document.addEventListener('visibilitychange', hidden);
     return () => {
-      events.forEach((n) => removeEventListener(n, gesture, { capture: true }));
+      if (autostart) events.forEach((n) => removeEventListener(n, gesture, { capture: true }));
       document.removeEventListener('visibilitychange', hidden);
-      // Leaving the page stops the music; a language switch mounts this again first and cancels that.
+      // Leaving the site stops the music; a language switch, or opening the CV, mounts this again first and
+      // cancels that.
       leaving = setTimeout(() => {
         playing = false;
         stop();
       }, 300);
     };
-  }, []);
+  }, [autostart]);
 
   // The panel closes on a click or tap outside it, and on Escape (back to the button).
   useEffect(() => {

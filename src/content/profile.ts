@@ -12,7 +12,7 @@ export const person = {
   // The PDF export injects the phone number into the PDF only; it is never on the site.
 };
 
-export const headline: L = { nl: 'Software engineer', en: 'Software engineer' };
+export const headline: L = { nl: 'Software Engineer', en: 'Software Engineer' };
 
 /** Meta description and the line under the name on the CV. */
 export const intro: L = {
@@ -72,7 +72,7 @@ const immoweb: Role = {
   company: 'Immoweb',
   companyNote: { nl: 'AVIV Group', en: 'AVIV Group' },
   url: 'https://www.immoweb.be',
-  title: { nl: 'Software engineer', en: 'Software engineer' },
+  title: { nl: 'Software Engineer', en: 'Software Engineer' },
   start: '2026-04',
   highlights: [bullet.rewrite, bullet.login, bullet.claudeCode],
 };
@@ -81,7 +81,7 @@ const realo: Role = {
   company: 'Realo',
   companyNote: { nl: 'in april 2026 overgenomen door Immoweb', en: 'acquired by Immoweb in April 2026' },
   url: 'https://www.realo.be',
-  title: { nl: 'Software engineer', en: 'Software engineer' },
+  title: { nl: 'Software Engineer', en: 'Software Engineer' },
   start: '2021-11',
   end: '2026-04',
   highlights: [bullet.backOffice, bullet.mentoring, bullet.vlabel, bullet.reports, bullet.savedSearches, bullet.infra],

@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { LangSwitch } from '@/components/LangSwitch';
+import { Music } from '@/components/Music';
 import { PrintButton } from '@/components/PrintButton';
 import { cvExperience, education, headline, interests, languages, learning, person, skills, summary } from '@/content/profile';
 import { projects } from '@/content/projects';
@@ -27,7 +28,10 @@ export default async function CvPage({ params }: { params: Promise<{ locale: Loc
       />
       <div className="no-print mx-auto flex h-16 max-w-[210mm] items-center justify-between gap-3 px-4 text-sm">
         <Link href={`/${l}/`} className="hover:underline">{ui.cv.back[l]}</Link>
-        <div className="flex items-center gap-5">
+        {/* `relative` for the sound panel, which hangs under this group. The button only shows when the boat
+            trip put the music on (html.walk), so the CV on its own stays silent and shows nothing. */}
+        <div className="relative flex items-center gap-5">
+          <Music locale={l} />
           <LangSwitch locale={l} path="cv/" />
           <PrintButton label={ui.cv.print[l]} />
         </div>

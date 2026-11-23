@@ -15,7 +15,7 @@ import { GRASLEI, RIDE, rowLength, STOPS } from './plan';
 import { BRIDGE, FAR, MAT, MIDSTREAM, palette, QUAY, RIVER, WATER } from './houses';
 import { People, Sitters } from './People';
 import { mark, mb } from './mark';
-import { posterTexture } from './posters';
+import { posterTexture, type Poster } from './posters';
 import { streetCopy } from './copy';
 import { type Framing, type Line, paintBoard, placeBoard, skyBoard, split2 } from './skyBoard';
 import { type RGB, skyAt } from './sky';
@@ -306,13 +306,22 @@ type Follow = { on: boolean; u: number; cut: boolean; moved: number; p: number; 
 /* ---------------- Posters ---------------- */
 
 function Posters({ street, locale, state, onOpen, hovered, cue }: { street: World['street']; locale: Locale; state: RefObject<StreetState>; onOpen: (id: string) => void; hovered: RefObject<string | null>; cue: RefObject<Cue> }) {
-  const [tex, setTex] = useState<Record<string, THREE.Texture>>({});
+  const [tex, setTex] = useState<Record<string, Poster>>({});
   const [hover, setHover] = useState<string | null>(null);
   // Sizes are set here every frame rather than as a prop: the poster the gull shows you swells twice.
   const meshes = useRef<Record<string, THREE.Mesh | null>>({});
+  // Which poster has had its "Read more" painted out: the open one, whose story is on the screen already.
+  // Watched here rather than in an effect because the focus is a ref the scene writes, not React state.
+  const noMore = useRef<string | null>(null);
   useFrame(() => {
     const c = cue.current;
     for (const p of street.posters) meshes.current[p.id]?.scale.setScalar((hover === p.id ? 1.03 : 1) * (c.id === p.id ? 1 + 0.06 * c.pulse : 1));
+    const open = state.current.focus;
+    if (open === noMore.current) return;
+    if (noMore.current) tex[noMore.current]?.showMore(true);
+    if (open && !tex[open]) return; // its face is still being drawn; try again next frame
+    if (open) tex[open].showMore(false);
+    noMore.current = open;
   });
   // the gull on the first poster hops when you point at it
   useEffect(() => {
@@ -322,13 +331,13 @@ function Posters({ street, locale, state, onOpen, hovered, cue }: { street: Worl
     let alive = true;
     const font = getComputedStyle(document.body).fontFamily;
     document.fonts.ready.then(async () => {
-      const out: Record<string, THREE.Texture> = {};
+      const out: Record<string, Poster> = {};
       let total = 0;
       for (const p of street.posters) {
         out[p.id] = await posterTexture(p.id, locale, font);
         // Seven of these are built before the street draws a frame, and together they are the largest thing the
         // page puts on the card. If the context goes in the middle of this loop, the log says which one it was on.
-        const c = out[p.id].image as HTMLCanvasElement;
+        const c = out[p.id].tex.image as HTMLCanvasElement;
         total += mb(c.width, c.height);
         mark(`poster ${p.id} ${c.width}x${c.height} · ${total.toFixed(0)}MB of posters so far`);
       }
@@ -365,7 +374,7 @@ function Posters({ street, locale, state, onOpen, hovered, cue }: { street: Worl
           }}
         >
           <planeGeometry args={[p.w, p.h]} />
-          <meshBasicMaterial key={tex[p.id] ? 't' : 'n'} map={tex[p.id] ?? null} color={tex[p.id] ? '#ffffff' : palette.cream} />
+          <meshBasicMaterial key={tex[p.id] ? 't' : 'n'} map={tex[p.id]?.tex ?? null} color={tex[p.id] ? '#ffffff' : palette.cream} />
         </mesh>
       ))}
     </>
@@ -796,7 +805,7 @@ function Scene({ town, state, locale, dpr, onOpen, onSlow, onLost, onReady }: { 
       const aspect = size.width / size.height;
       const d = portrait ? Math.max((f.w / 2 / (tv * aspect)) * 1.12, (f.h / 2 / tv) * 2.6) : (f.h / 2 / tv) * 1.9;
       // the panel covers the right of the screen (or the bottom on a phone): show the poster beside it
-      v.flook.set(f.x + (portrait ? 0 : f.nz * f.w * 0.46), f.y - (portrait ? d * tv * 0.55 : 0), f.z);
+      v.flook.set(f.x + (portrait ? 0 : f.nz * f.w * 0.49), f.y - (portrait ? d * tv * 0.55 : 0), f.z);
       v.fpos.set(v.flook.x, v.flook.y, f.z + f.nz * d);
       const e = easeInOut(focus.current);
       // Turn the view, not a point to look at. The boat's look point sits one metre in front of the eye while

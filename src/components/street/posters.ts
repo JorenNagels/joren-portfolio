@@ -169,7 +169,14 @@ function fit(ctx: CanvasRenderingContext2D, text: string, max: number, weight: n
   return size;
 }
 
-export async function posterTexture(id: string, l: Locale, font: string) {
+/**
+ * One poster face: the texture for the facade, and the way to take its "Read more" button off again. The button
+ * is painted into the canvas like the rest, so hiding it means putting back the pixels that were under it: the
+ * ones there before it was drawn are kept, and drawing it again is a call away.
+ */
+export type Poster = { tex: THREE.CanvasTexture; showMore: (on: boolean) => void };
+
+export async function posterTexture(id: string, l: Locale, font: string): Promise<Poster> {
   const c = document.createElement('canvas');
   c.width = W;
   c.height = H;
@@ -181,23 +188,32 @@ export async function posterTexture(id: string, l: Locale, font: string) {
   // A button, not a line of small print: from the boat a poster is only a few centimetres across on a phone, and
   // this is the one thing on it that has to be read and tapped. Shaped like the buttons on the page, with the
   // same hard shadow under it.
+  // The button as it stands on the poster, and the poster without it: see showMore at the end.
+  let pill: { x: number; y: number; clean: ImageData; draw: () => void } | null = null;
   const more = (x: number, bg = INK, ink = PAPER) => {
     const h = 120;
     const y = MORE_TOP;
     ctx.font = f(600, 64);
-    const w = ctx.measureText(`${t.more[l]} →`).width + 2 * 56;
-    ctx.fillStyle = 'rgba(0,0,0,0.28)';
-    ctx.beginPath();
-    ctx.roundRect(x, y + 10, w, h, h / 2);
-    ctx.fill();
-    ctx.fillStyle = bg;
-    ctx.beginPath();
-    ctx.roundRect(x, y, w, h, h / 2);
-    ctx.fill();
-    ctx.fillStyle = ink;
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`${t.more[l]} →`, x + 56, y + h / 2 + 3);
-    ctx.textBaseline = 'alphabetic';
+    const w = Math.min(W - x, ctx.measureText(`${t.more[l]} →`).width + 2 * 56);
+    const draw = () => {
+      ctx.font = f(600, 64);
+      ctx.fillStyle = 'rgba(0,0,0,0.28)';
+      ctx.beginPath();
+      ctx.roundRect(x, y + 10, w, h, h / 2);
+      ctx.fill();
+      ctx.fillStyle = bg;
+      ctx.beginPath();
+      ctx.roundRect(x, y, w, h, h / 2);
+      ctx.fill();
+      ctx.fillStyle = ink;
+      ctx.textBaseline = 'middle';
+      ctx.fillText(`${t.more[l]} →`, x + 56, y + h / 2 + 3);
+      ctx.textBaseline = 'alphabetic';
+    };
+    // Taken before it is drawn, and a little wider and taller than the button, so the hard shadow under it
+    // comes back off the poster too.
+    pill = { x, y, clean: ctx.getImageData(x, y, Math.min(W - x, w + 2), Math.min(H - y, h + 14)), draw };
+    draw();
   };
 
   if (kind === 'about') {
@@ -261,5 +277,14 @@ export async function posterTexture(id: string, l: Locale, font: string) {
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
   tex.anisotropy = 8;
-  return tex;
+  return {
+    tex,
+    /** Off while the poster's panel is open: the story is already being read, so asking for it again is odd. */
+    showMore(on: boolean) {
+      if (!pill) return;
+      if (on) pill.draw();
+      else ctx.putImageData(pill.clean, pill.x, pill.y);
+      tex.needsUpdate = true;
+    },
+  };
 }
