@@ -15,7 +15,8 @@ import { toonMaterial } from './toon';
 // and it hops; open a poster and it is off, over the roofs, for good.
 // The camera goes with it (see Cue): it follows the gull in across the river, round to the poster, holds there while
 // the poster swells and the gull pecks at it, and hands the view back. The first trip out to fetch you is followed
-// the same way; after that the gull goes on its own.
+// the same way; after that the gull goes on its own. If you have already turned the view yourself, the camera is
+// left alone altogether: the gull flies the same flights and the poster still swells, but nothing moves your view.
 
 const SIZE = 2.2; // a toy town's gull: twice as big as a real one, or the ink lines leave nothing of it from the boat
 const clamp01 = (x: number) => Math.min(1, Math.max(0, x));

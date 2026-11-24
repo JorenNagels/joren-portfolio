@@ -148,6 +148,8 @@ const PITCH_DOWN = 0.12;
 // How far a drag can turn you: the whole way round, so you can watch the street you have already passed.
 const TURN = Math.PI;
 const TURN_SPEED = 0.0055; // radians a pixel dragged
+// Pixels of drag that count as having looked about yourself, after which the gull leaves the camera alone.
+const TOOK_DRAG = 24;
 // Pinching on a touch screen narrows the camera's view rather than enlarging the page, so the header and the
 // buttons stay the size they are and only the town comes closer: close enough to read a poster from the boat.
 const ZOOM_MAX = 4;
@@ -295,7 +297,8 @@ function Clouds() {
 // The gull (Gull.tsx) says where to look: at itself as it flies in across the river, then at the first poster where
 // it lands. The camera eases round to that, follows it a little behind (a bird darts; a camera should not), leans
 // in on the poster, and hands the view back. Any look of your own cuts it short: a mouse that wanders off, a drag,
-// a scroll.
+// a scroll. And if you have already looked about yourself — a drag or a pinch, on either a mouse or a finger — it
+// never starts at all (look.took): the gull flies in and lands the same, but the view stays where you put it.
 const FOLLOW_IN = 1.2; // seconds to ease into following, and to let go
 const FOLLOW_PUSH = 1; // how much of the gull's lean-in (Cue.push) the camera takes
 // The furthest it tilts up, in radians: the name hangs in the sky over the river ahead, so looking down the river
@@ -569,7 +572,9 @@ function Scene({ town, state, locale, dpr, onOpen, onSlow, onLost, onReady }: { 
   // YAW either side of straight ahead. `turn` is which way you are facing, and a drag — with a finger or with
   // the mouse held down — swings it the whole way round, so you can look back down the river behind the boat.
   // `zoom` is where two fingers have pinched the view to, `z` the zoom the camera has eased to.
-  const look = useRef({ yaw: 0, pitch: 0, ty: 0, tp: 0, turn: 0, nx: 0, zoom: 1, z: 1, drag: null as null | { x: number; y: number } });
+  // `took` is set once you have looked about on your own — a real drag, or a pinch. The gull then stops taking the
+  // camera: it still flies in and lands on the poster, but the view stays where you put it.
+  const look = useRef({ yaw: 0, pitch: 0, ty: 0, tp: 0, turn: 0, nx: 0, zoom: 1, z: 1, took: false, drag: null as null | { x: number; y: number } });
   useEffect(() => {
     const el = gl.domElement;
     // The boat sails itself on a touch screen, so the page underneath has nothing to scroll and every swipe,
@@ -580,6 +585,7 @@ function Scene({ town, state, locale, dpr, onOpen, onSlow, onLost, onReady }: { 
     const follows = (e: PointerEvent) => e.pointerType === 'mouse' && !state.current.reduced;
     const fingers = new Map<number, { x: number; y: number }>();
     let pinch: { d: number; zoom: number } | null = null;
+    let dragged = 0; // pixels of the drag under way
     const spread = () => {
       const [a, b] = [...fingers.values()];
       return Math.max(1, Math.hypot(a.x - b.x, a.y - b.y));
@@ -596,6 +602,7 @@ function Scene({ town, state, locale, dpr, onOpen, onSlow, onLost, onReady }: { 
         }
       }
       look.current.drag = { x: e.clientX, y: e.clientY };
+      dragged = 0;
     };
     const move = (e: PointerEvent) => {
       const L = look.current;
@@ -603,11 +610,14 @@ function Scene({ town, state, locale, dpr, onOpen, onSlow, onLost, onReady }: { 
       if (state.current.focus) return;
       if (pinch && fingers.size >= 2) {
         L.zoom = Math.max(1, Math.min(ZOOM_MAX, (pinch.zoom * spread()) / pinch.d));
+        if (L.zoom > 1.05) L.took = true;
         return;
       }
       if (L.drag) {
         // Zoomed in, the same swipe turns you less, so what is under your finger stays under it.
         const speed = TURN_SPEED / L.z;
+        dragged += Math.hypot(e.clientX - L.drag.x, e.clientY - L.drag.y);
+        if (dragged > TOOK_DRAG) L.took = true;
         L.turn = clamp(L.turn + (e.clientX - L.drag.x) * speed);
         // A finger tilts the view as well (the mouse does that by where it is), to look up a facade or down at
         // the water.
@@ -719,7 +729,9 @@ function Scene({ town, state, locale, dpr, onOpen, onSlow, onLost, onReady }: { 
     // --- Going with the gull (see FOLLOW_IN).
     const C = cue.current;
     const F = follow.current;
-    if (C.want && !F.on) {
+    // Never once you have taken the camera yourself: the gull flies in and lands all the same, and the poster
+    // still swells, but a view you have turned or pinched is yours to keep.
+    if (C.want && !F.on && !L.took) {
       Object.assign(F, { on: true, cut: false, moved: 0, p: s.p });
       F.at.set(C.x, C.y, C.z);
     }
