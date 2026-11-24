@@ -1,0 +1,21 @@
+src/components/street/Gull.tsx
+  s_448d2b5fa981d6::t_677f91971454f7 18-19
+src/components/street/StreetScene.tsx
+  s_448d2b5fa981d6::t_0db35f9032805c 151-152,300-301,575-577,588,605,613,619-620,732-734
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "5466545baa1a687e1ac070e4374a6c5b3e2772a8",
+  "prompts": {},
+  "sessions": {
+    "s_448d2b5fa981d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_448d2b5fa981d6",
+        "model": "unknown"
+      },
+      "human_author": "Joren Nagels <njoren@gmail.com>"
+    }
+  }
+}
