@@ -1,0 +1,19 @@
+src/components/street/Street.tsx
+  s_94bdd1ba409e71::t_e49e7585381c56 37-48,77-81,92-93,291,297-340,397,405
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "b1e48a7539e7c136a340ffe542ca95f969c5e5fa",
+  "prompts": {},
+  "sessions": {
+    "s_94bdd1ba409e71": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_94bdd1ba409e71",
+        "model": "unknown"
+      },
+      "human_author": "Joren Nagels <njoren@gmail.com>"
+    }
+  }
+}
