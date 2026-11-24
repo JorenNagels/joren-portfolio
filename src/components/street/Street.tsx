@@ -34,6 +34,18 @@ const SAIL = 80;
 // Where the boat should be to see each poster best: a few metres before it, with the head turned.
 const stops = STOPS.map((s) => ({ ...s, x: s.x - 8 }));
 
+/**
+ * Where the trip stood when the street was last left for another page of the site — the CV, say.
+ *
+ * It lives in the module, not in storage, so it lasts exactly as long as the document does: a click to the CV and
+ * back is one document, and finds it; opening the site, reloading it, or coming back tomorrow is another, and does
+ * not. So the street always starts at the quay when you arrive, and never starts over when you come back.
+ *
+ * Only set once someone has stepped aboard: leaving from the start button and coming back should still offer it,
+ * not least because the music needs that click.
+ */
+let resume: { p: number; sail: number } | null = null;
+
 export function Street({ locale: l }: { locale: Locale }) {
   const root = useRef<HTMLElement>(null);
   const stage = useRef<HTMLDivElement>(null);
@@ -62,7 +74,11 @@ export function Street({ locale: l }: { locale: Locale }) {
   const onReady = useCallback(() => setReady(true), []);
   const onLost = useCallback(() => setLost(true), []);
   // Then the visitor steps aboard: a click or key press, which is also what lets the browser play the music.
-  const [started, setStarted] = useState(false);
+  // Coming back from another page, they are aboard already (`resume`, read once at the first render and kept, so
+  // that leaving again cannot change what this trip thinks it is).
+  const back = useRef(resume);
+  const [started, setStarted] = useState(!!resume);
+  const startedRef = useRef(!!resume);
   const [gateGone, setGateGone] = useState(false);
   const startBtn = useRef<HTMLButtonElement>(null);
   const start = useCallback(() => setStarted(true), []);
@@ -73,7 +89,8 @@ export function Street({ locale: l }: { locale: Locale }) {
   // fresh measurement is zero. iOS fires a resize the moment its URL bar collapses on the first scroll, and
   // re-arming the cut from that reading put the camera back in the arrival shot at (base - half) / 0, forever,
   // because `at: Infinity` means hold the shot. A camera with a NaN in its matrix draws nothing at all.
-  const handedOver = useRef(false);
+  // Coming back, there are no drawn houses to dissolve: the street is put straight on screen where it was.
+  const handedOver = useRef(!!resume);
   const onMeasure = useCallback((m: number, base: number) => {
     if (state.current.reduced || handedOver.current || !(m > 0)) return;
     state.current.arrival = { m, base, at: Infinity };
@@ -271,10 +288,55 @@ export function Street({ locale: l }: { locale: Locale }) {
     };
   }, [gate]);
   useEffect(() => {
+    startedRef.current = started;
     if (!started) return;
     const id = setTimeout(() => setGateGone(true), 500);
     return () => clearTimeout(id);
   }, [started]);
+
+  /**
+   * Arriving, and leaving for another page.
+   *
+   * Arriving: the quay, always. Browsers put you back where you were when a page is loaded again, which on a trip
+   * this long means opening the site halfway down the river — the evening sky up, the closing text already there,
+   * all of it behind a loader and a button that says start. `scrollRestoration = 'manual'` turns that off and the
+   * scroll goes to the top, on the smooth scroller too if it is already running.
+   *
+   * Coming back from the CV: where you left off, which is what `resume` is holding. The place is put back as a
+   * scroll (the trip is read off the scroll), or as the clock when the boat sails itself, and the start button
+   * and the pop-up houses are skipped — see `back` where the loader is rendered.
+   */
+  useEffect(() => {
+    const b = back.current;
+    const jump = (y: number) => {
+      const l = lenis();
+      if (l) l.scrollTo(y, { immediate: true, force: true });
+      else scrollTo(0, y);
+    };
+    const put = b
+      ? () => {
+          const el = root.current;
+          if (el) jump(el.offsetTop + b.p * (el.offsetHeight - innerHeight));
+        }
+      : () => jump(0);
+    if (b) {
+      sail.current.t = b.sail;
+      sail.current.ease = 1;
+    } else history.scrollRestoration = 'manual';
+    put();
+    // The router puts the scroll of the entry it is going back to wherever it thinks it belongs, a moment after
+    // this runs; this lands after that.
+    const f = requestAnimationFrame(put);
+    return () => {
+      cancelAnimationFrame(f);
+      resume = startedRef.current ? { p: state.current.p, sail: sail.current.t } : null;
+    };
+  }, []);
+
+  // Coming back there is no loader to hand over, so the street shows itself as soon as it has a frame to show.
+  useEffect(() => {
+    if (back.current && ready) setShown(true);
+  }, [ready]);
 
   const openStop = useCallback((id: string) => {
     state.current.focus = id;
@@ -332,7 +394,7 @@ export function Street({ locale: l }: { locale: Locale }) {
         </div>
         {/* Once the context is gone the loader must go too: it folds away on the street's first frame, and there
             will not be one, so it would pop its houses up and down over the fallback for ever. */}
-        {!lost && <Loader l={l} built={built} ready={ready} go={started} onMeasure={onMeasure} onOut={onShown} />}
+        {!lost && !back.current && <Loader l={l} built={built} ready={ready} go={started} onMeasure={onMeasure} onOut={onShown} />}
         {/* Click anywhere to start (and not on the street behind, which is still hidden) */}
         {gate && !lost && <div className="absolute inset-0 cursor-pointer" onClick={start} aria-hidden />}
 
@@ -340,7 +402,7 @@ export function Street({ locale: l }: { locale: Locale }) {
             the name hangs in the street's sky (skyBoard.ts), with "scroll to sail" under it, and the camera swings round
             to it. */}
         <div className="pointer-events-none absolute inset-x-0 top-[16%] px-4 text-center">
-          <p className={`transition-opacity duration-700 ${shown && !lost ? 'opacity-0' : ''}`} aria-hidden>
+          <p className={`transition-opacity duration-700 ${(shown || back.current) && !lost ? 'opacity-0' : ''}`} aria-hidden>
             <span className="block text-base sm:text-lg">{t.role[l]}</span>
             <span className="mt-1 block text-[clamp(2.5rem,8.2vw,8.9rem)] font-semibold leading-[0.85] tracking-[-0.055em]">{person.name}</span>
           </p>
