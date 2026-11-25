@@ -8,8 +8,9 @@ export const dynamic = 'force-static';
 /**
  * The list of pages worth indexing, with every page's language versions attached.
  *
- * /nl/walk/ and /nl/model/ (and their /en/ twins) are deliberately absent: they are dev previews and say
- * noindex themselves. `lastModified` is the build time, which for a static export is when the content changed.
+ * Only the home page is in here. /nl/cv/, /nl/walk/ and /nl/model/ (and their /en/ twins) are deliberately
+ * absent and say noindex themselves: the CV is for the people who get the link, the other two are dev
+ * previews. `lastModified` is the build time, which for a static export is when the content changed.
  */
 export default function sitemap(): MetadataRoute.Sitemap {
   const lastModified = new Date();
@@ -21,21 +22,12 @@ export default function sitemap(): MetadataRoute.Sitemap {
 
   return [
     { url: siteUrl('/'), lastModified, changeFrequency: 'monthly', priority: 1, alternates: { languages: home } },
-    ...locales.flatMap((l): MetadataRoute.Sitemap => [
-      {
-        url: siteUrl(`/${l}/`),
-        lastModified,
-        changeFrequency: 'monthly',
-        priority: 1,
-        alternates: { languages: home },
-      },
-      {
-        url: siteUrl(`/${l}/cv/`),
-        lastModified,
-        changeFrequency: 'monthly',
-        priority: 0.8,
-        alternates: { languages: cluster('cv/') },
-      },
-    ]),
+    ...locales.map((l): MetadataRoute.Sitemap[number] => ({
+      url: siteUrl(`/${l}/`),
+      lastModified,
+      changeFrequency: 'monthly',
+      priority: 1,
+      alternates: { languages: home },
+    })),
   ];
 }

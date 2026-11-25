@@ -9,11 +9,13 @@ import type { Locale } from '@/content/types';
 import { period, ui } from '@/content/ui';
 import { alternates, personSchema } from '@/lib/seo';
 
-// Its own canonical: this page is worth indexing in its own right, and it is the one a recruiter
-// searching the name wants. It used to inherit the home page's canonical and ask to be dropped.
+// Kept out of Google on purpose: the CV is for the people who get the link, not for a search on the name,
+// so the home page is the only indexed page. `follow: true` still lets a crawler read the links on it, so
+// the trail back to the home page stays intact. The canonical and hreflang stay for the shared link itself:
+// they cost nothing while the page is noindex, and they are what this page needs if it is ever indexed again.
 export async function generateMetadata({ params }: { params: Promise<{ locale: Locale }> }): Promise<Metadata> {
   const { locale } = await params;
-  return { title: 'CV', alternates: alternates(locale, 'cv/') };
+  return { title: 'CV', robots: { index: false, follow: true }, alternates: alternates(locale, 'cv/') };
 }
 
 export default async function CvPage({ params }: { params: Promise<{ locale: Locale }> }) {
