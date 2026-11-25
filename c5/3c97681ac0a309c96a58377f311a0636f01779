@@ -1,0 +1,23 @@
+src/app/[locale]/cv/page.tsx
+  s_323c271f02ed13::t_a5dfe84eae4483 12-15,18
+src/app/robots.ts
+  s_323c271f02ed13::t_09c663a09093f2 8
+src/app/sitemap.ts
+  s_323c271f02ed13::t_e079514e7a425c 11-13,25-31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.7.5",
+  "base_commit_sha": "c53c97681ac0a309c96a58377f311a0636f01779",
+  "prompts": {},
+  "sessions": {
+    "s_323c271f02ed13": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "s_323c271f02ed13",
+        "model": "unknown"
+      },
+      "human_author": "Joren Nagels <njoren@gmail.com>"
+    }
+  }
+}
